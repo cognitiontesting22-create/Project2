@@ -1,0 +1,380 @@
+import hashlib
+import uuid
+from datetime import date, timedelta
+from fractions import Fraction
+from urllib.parse import urlencode
+from django.contrib import messages
+from django.db import transaction
+from django.db.models import F, Q, Exists, OuterRef
+from django.utils import timezone
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_POST
+from .forms import IngredientFormSet, MealPlanForm, RecipeForm, SettingsForm, PantryForm, CookForm
+from .models import KitchenSettings, MealPlan, Recipe, ShoppingCheck, PantryItem, CookingRecord, Ingredient
+from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, quantity_display, shopping_display
+from .inventory import pantry_balances, recipe_match, add_stock, lock_kitchen, record_cooking, undo_cooking, deduction_display, _add_stock
+
+def week_start(value=None):
+    try:
+        day = date.fromisoformat(value) if value else date.today()
+    except (ValueError, TypeError):
+        day = date.today()
+    if not 1900 <= day.year <= 2100:
+        day = date.today()
+    return day - timedelta(days=day.weekday())
+
+def week_context(request):
+    start = week_start(request.GET.get("week"))
+    return {"week": start, "week_end": start + timedelta(days=6), "prev_week": start - timedelta(days=7), "next_week": start + timedelta(days=7), "today": date.today()}
+
+def recipe_box(request, favorites=False):
+    recipes = Recipe.objects.annotate(total=F("prep_time") + F("cook_time"))
+    query = request.GET.get("q", "").strip()
+    selected = request.GET.get("filter", "all")
+    sort = request.GET.get("sort", "newest")
+    if favorites:
+        recipes = recipes.filter(favorite=True)
+    if query:
+        recipes = recipes.filter(Q(title__icontains=query) | Q(description__icontains=query) | Q(ingredients__name__icontains=query)).distinct()
+    filters = {"quick": Q(total__lte=30), "vegetarian": Q(vegetarian=True), "protein": Q(high_protein=True), "baking": Q(category="Dessert") | Q(tag__icontains="bak"), "seasonal": Q(seasonal=True)}
+    if selected in filters:
+        recipes = recipes.filter(filters[selected])
+    recipes = recipes.order_by({"newest": "-created_at", "oldest": "created_at", "name": "title", "quickest": "total"}.get(sort, "-created_at"), "pk")
+    if sort == "pantry":
+        recipes = list(recipes.prefetch_related("ingredients"))
+        balances = pantry_balances()
+        for recipe in recipes:
+            recipe.pantry_match = recipe_match(recipe, recipe.servings, balances)
+        recipes.sort(key=lambda recipe: (not recipe.pantry_match["total_count"], recipe.pantry_match["missing_count"], -recipe.pantry_match["covered_count"], recipe.total_time, recipe.title.casefold()))
+    tabs = [("all", "All recipes"), ("quick", "Quick & easy"), ("vegetarian", "Vegetarian"), ("protein", "High protein"), ("baking", "Baking")]
+    context = {"recipes": recipes, "q": query, "selected_filter": selected, "sort": sort, "tabs": tabs, "favorites": favorites, "page": "favorites" if favorites else "recipes", "page_title": "Favorites" if favorites else "Recipe box"}
+    context["planned_count"] = MealPlan.objects.filter(date__gte=week_start(), date__lte=week_start() + timedelta(days=6)).count()
+    return render(request, "kitchen/recipe_box.html", context)
+
+def requested_servings(request, default):
+    raw = request.GET.get("servings", str(default))
+    try:
+        amount = int(raw)
+        if not str(raw).isdigit() or not 1 <= amount <= MAX_SERVINGS:
+            raise ValueError
+        return amount
+    except (ValueError, TypeError):
+        raise ValueError("Choose a positive whole number of servings.") from None
+
+def scaled_ingredients(recipe, servings):
+    ratio = Fraction(servings, recipe.servings)
+    return [{"id": ingredient.pk, "name": ingredient.name, **quantity_display(ingredient.exact_quantity * ratio, ingredient.unit, recipe.measurement_system)} for ingredient in recipe.ingredients.all()]
+
+def recipe_detail(request, pk):
+    recipe = get_object_or_404(Recipe.objects.prefetch_related("ingredients"), pk=pk)
+    try:
+        servings = requested_servings(request, recipe.servings)
+    except ValueError as error:
+        servings = recipe.servings
+        messages.error(request, str(error))
+    return render(request, "kitchen/recipe_detail.html", {"recipe": recipe, "servings": servings, "scaled_ingredients": scaled_ingredients(recipe, servings), "pantry_match": recipe_match(recipe, servings), "page": "recipes", "page_title": "Recipe box", "today": date.today(), "all_recipes": Recipe.objects.all()})
+
+def recipe_scale(request, pk):
+    recipe = get_object_or_404(Recipe.objects.prefetch_related("ingredients"), pk=pk)
+    try:
+        servings = requested_servings(request, recipe.servings)
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    ingredients = [{key: value for key, value in item.items() if key != "quantity"} for item in scaled_ingredients(recipe, servings)]
+    match = recipe_match(recipe, servings)
+    return JsonResponse({"servings": servings, "ingredients": ingredients, "pantry": {key: match[key] for key in ["missing_count", "covered_count", "total_count", "ready"]}})
+
+def recipe_edit(request, pk=None):
+    recipe = get_object_or_404(Recipe, pk=pk) if pk else Recipe()
+    profile, _ = KitchenSettings.objects.get_or_create(pk=1)
+    form = RecipeForm(request.POST or None, request.FILES or None, instance=recipe, initial={"measurement_system": recipe.measurement_system if pk else profile.measurement_system})
+    formset = IngredientFormSet(request.POST or None, instance=recipe, prefix="ingredients")
+    if request.method == "POST":
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                lock_kitchen()
+                recipe = form.save()
+                formset.instance = recipe
+                ingredients = formset.save(commit=False)
+                for removed in formset.deleted_objects:
+                    removed.delete()
+                for index, ingredient in enumerate(ingredients):
+                    ingredient.position = index
+                    ingredient.save()
+            messages.success(request, "Recipe updated. Looking delicious!" if pk else "A new recipe for your box. Happy cooking!")
+            return redirect("recipe_detail", pk=recipe.pk)
+        messages.error(request, "A few details need your attention. Please check the fields below.")
+    return render(request, "kitchen/recipe_form.html", {"form": form, "formset": formset, "recipe": recipe, "editing": bool(pk), "page": "recipes", "page_title": "Edit recipe" if pk else "New recipe"})
+
+@require_POST
+def recipe_delete(request, pk):
+    with transaction.atomic():
+        lock_kitchen()
+        get_object_or_404(Recipe, pk=pk).delete()
+    messages.success(request, "Recipe removed from your box.")
+    return redirect("recipe_box")
+
+@require_POST
+def favorite_toggle(request, pk):
+    recipe = get_object_or_404(Recipe, pk=pk)
+    recipe.favorite = not recipe.favorite
+    recipe.save(update_fields=["favorite"])
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"favorite": recipe.favorite, "count": Recipe.objects.filter(favorite=True).count()})
+    return redirect("recipe_detail", pk=pk)
+
+def planner(request):
+    context = week_context(request)
+    plans = MealPlan.objects.filter(date__gte=context["week"], date__lte=context["week_end"]).select_related("recipe")
+    cooked = {record.plan_id: record for record in CookingRecord.objects.filter(plan__in=plans, undone_at__isnull=True)}
+    for plan in plans:
+        plan.cooked_record = cooked.get(plan.pk)
+    slots = {(p.date, p.meal): p for p in plans}
+    days = []
+    for offset in range(7):
+        day = context["week"] + timedelta(days=offset)
+        days.append({"date": day, "meals": [{"name": meal, "plan": slots.get((day, meal))} for meal, _ in MealPlan.MEAL_CHOICES]})
+    context.update({"days": days, "all_recipes": Recipe.objects.all(), "planned_count": plans.count(), "cooked_count": len(cooked), "page": "planner", "page_title": "Meal planner"})
+    return render(request, "kitchen/planner.html", context)
+
+@require_POST
+def plan_add(request):
+    form = MealPlanForm(request.POST)
+    if form.is_valid():
+        data = form.cleaned_data
+        with transaction.atomic():
+            lock_kitchen()
+            previous = MealPlan.objects.filter(date=data["date"], meal=data["meal"]).first()
+            if previous and CookingRecord.objects.filter(plan=previous, undone_at__isnull=True).exists():
+                messages.error(request, "This meal is already cooked. Undo its cooking record before changing the plan.")
+            else:
+                MealPlan.objects.update_or_create(date=data["date"], meal=data["meal"], defaults={"recipe": data["recipe"], "servings": data["servings"]})
+                messages.success(request, f'{data["recipe"].title} added to {data["date"]:%A} {data["meal"].lower()}.')
+        start = week_start(data["date"].isoformat())
+    else:
+        messages.error(request, "We couldn't add that meal. Choose a recipe, a valid date, and a positive whole number of servings.")
+        start = week_start()
+    return redirect(reverse("planner") + "?" + urlencode({"week": start.isoformat()}))
+
+@require_POST
+def plan_remove(request, pk):
+    with transaction.atomic():
+        lock_kitchen()
+        plan = get_object_or_404(MealPlan, pk=pk)
+        start = week_start(plan.date.isoformat())
+        if CookingRecord.objects.filter(plan=plan, undone_at__isnull=True).exists():
+            messages.error(request, "This meal is already cooked. Undo its cooking record before removing it from your plan.")
+        else:
+            plan.delete()
+            messages.success(request, "Meal removed. Room for something new!")
+    return redirect(reverse("planner") + "?" + urlencode({"week": start.isoformat()}))
+
+def shopping_key(name, dimension):
+    return hashlib.sha256("\0".join((name, dimension)).encode()).hexdigest()
+
+def shopping_requirements(start):
+    active_cooking = CookingRecord.objects.filter(plan_id=OuterRef("pk"), undone_at__isnull=True)
+    plans = MealPlan.objects.filter(date__gte=start, date__lte=start + timedelta(days=6)).annotate(cooked=Exists(active_cooking)).filter(cooked=False).select_related("recipe").prefetch_related("recipe__ingredients")
+    grouped = {}
+    profile, _ = KitchenSettings.objects.get_or_create(pk=1)
+    for plan in plans:
+        for ingredient in plan.recipe.ingredients.all():
+            unit = resolve_unit(ingredient.unit, plan.recipe.measurement_system)
+            key = (normalize_name(ingredient.name), unit.dimension)
+            item = grouped.setdefault(key, {"name": ingredient.name.strip(), "total": Fraction(0), "units": [], "recipes": set()})
+            item["total"] += ingredient.exact_quantity * Fraction(plan.servings, plan.recipe.servings) * unit.factor
+            item["units"].append(unit)
+            item["recipes"].add(plan.recipe.title)
+    checks = dict(ShoppingCheck.objects.filter(week=start).values_list("key", "checked"))
+    balances = pantry_balances()
+    result = []
+    for key, item in sorted(grouped.items()):
+        item["key"] = shopping_key(*key)
+        item["checked"] = checks.get(item["key"], False)
+        item["available"] = min(balances.get(key, Fraction(0)), item["total"])
+        item["missing"] = item["total"] - item["available"]
+        item["required_display"] = shopping_display(item["total"], item["units"], profile.measurement_system)
+        item["pantry_display"] = shopping_display(item["available"], item["units"], profile.measurement_system)
+        item.update(shopping_display(item["missing"], item["units"], profile.measurement_system))
+        item["dimension"] = key[1]
+        item["recipes"] = sorted(item["recipes"])
+        result.append(item)
+    return result, plans.count()
+
+def shopping_items(start):
+    requirements, count = shopping_requirements(start)
+    return [item for item in requirements if item["missing"] > 0], count
+
+def shopping(request):
+    context = week_context(request)
+    requirements, count = shopping_requirements(context["week"])
+    items = [item for item in requirements if item["missing"] > 0]
+    context.update({"items": items, "covered": [item for item in requirements if not item["missing"]], "planned_count": count, "checked_count": sum(i["checked"] for i in items), "page": "shopping", "page_title": "Shopping list"})
+    return render(request, "kitchen/shopping.html", context)
+
+@require_POST
+def shopping_check(request):
+    start = week_start(request.POST.get("week"))
+    key = request.POST.get("key", "")
+    items, _ = shopping_items(start)
+    if key not in {item["key"] for item in items}:
+        return JsonResponse({"error": "This ingredient is no longer on your list."}, status=400)
+    check, _ = ShoppingCheck.objects.get_or_create(week=start, key=key)
+    check.checked = request.POST.get("checked") == "true"
+    check.save(update_fields=["checked"])
+    return JsonResponse({"checked": check.checked})
+
+def shopping_export(request):
+    start = week_start(request.GET.get("week"))
+    items, _ = shopping_items(start)
+    lines = [f"Savor shopping list · {start:%d %B %Y}", ""]
+    lines += [f'{"[x]" if i["checked"] else "[ ]"} {i["amount_display"]} {i["unit"]} {i["name"]}'.replace("  ", " ") for i in items]
+    response = HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="savor-shopping-{start}.txt"'
+    return response
+
+def settings_view(request):
+    profile, _ = KitchenSettings.objects.get_or_create(pk=1)
+    form = SettingsForm(request.POST or None, instance=profile)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Your kitchen, your way. Settings saved.")
+        return redirect("settings")
+    return render(request, "kitchen/settings.html", {"form": form, "page": "settings", "page_title": "Kitchen settings"})
+
+def pantry_context(request, form=None):
+    profile, _ = KitchenSettings.objects.get_or_create(pk=1)
+    all_items = list(PantryItem.objects.all())
+    today = timezone.localdate()
+    for item in all_items:
+        item.display = quantity_display(item.exact_quantity, item.unit, item.measurement_system)
+        item.use_soon = bool(item.exact_quantity and item.expires_on and today <= item.expires_on <= today + timedelta(days=7))
+    status = request.GET.get("status", "all")
+    query = request.GET.get("q", "").strip()
+    items = [item for item in all_items if not query or query.casefold() in item.name.casefold()]
+    if status == "stock":
+        items = [item for item in items if item.exact_quantity and not item.expired]
+    elif status == "soon":
+        items = [item for item in items if item.use_soon]
+    elif status == "empty":
+        items = [item for item in items if not item.exact_quantity]
+    elif status == "expired":
+        items = [item for item in items if item.expired]
+    return {"items": items, "stock_count": sum(bool(item.exact_quantity) and not item.expired for item in all_items), "soon_count": sum(item.use_soon for item in all_items), "empty_count": sum(not item.exact_quantity for item in all_items), "q": query, "status": status,
+        "form": form if form is not None else PantryForm(initial={"measurement_system": profile.measurement_system, "location": "pantry"}),
+        "ingredient_names": Ingredient.objects.order_by("name").values_list("name", flat=True).distinct(), "page": "pantry", "page_title": "My pantry"}
+
+def pantry(request):
+    return render(request, "kitchen/pantry.html", pantry_context(request))
+
+@require_POST
+def pantry_add(request):
+    form = PantryForm(request.POST)
+    if form.is_valid():
+        add_stock(form.cleaned_data)
+        messages.success(request, f'{form.cleaned_data["name"].capitalize()} added to your pantry. Your shopping list is up to date.')
+        return redirect("pantry")
+    return render(request, "kitchen/pantry.html", {**pantry_context(request, form), "open_pantry_dialog": True})
+
+def pantry_edit(request, pk):
+    item = get_object_or_404(PantryItem, pk=pk)
+    form = PantryForm(request.POST or None, instance=item)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            lock_kitchen()
+            form.save()
+        messages.success(request, "Pantry updated. Your recipes and shopping list now use the new stock amount.")
+        return redirect("pantry")
+    return render(request, "kitchen/pantry_form.html", {"form": form, "item": item, "ingredient_names": Ingredient.objects.order_by("name").values_list("name", flat=True).distinct(), "page": "pantry", "page_title": "Update pantry item"})
+
+@require_POST
+def pantry_delete(request, pk):
+    with transaction.atomic():
+        lock_kitchen()
+        get_object_or_404(PantryItem, pk=pk).delete()
+    messages.success(request, "Item removed from your pantry.")
+    return redirect("pantry")
+
+def discover(request):
+    query = request.GET.get("q", "").strip()
+    extra_text = request.GET.get("ingredients", "")[:4000]
+    extras = {normalize_name(name.strip()) for name in extra_text.split(",")[:30] if name.strip() and len(name.strip()) <= 120}
+    recipes = Recipe.objects.all()
+    if query:
+        recipes = recipes.filter(Q(title__icontains=query) | Q(description__icontains=query) | Q(ingredients__name__icontains=query)).distinct()
+    try:
+        servings = requested_servings(request, 2)
+    except ValueError:
+        servings = 2
+        messages.error(request, "Choose a positive whole number of servings.")
+    balances = pantry_balances()
+    recipes = list(recipes.prefetch_related("ingredients"))
+    for recipe in recipes:
+        recipe.pantry_match = recipe_match(recipe, servings, balances, extras)
+    recipes.sort(key=lambda recipe: (not recipe.pantry_match["total_count"], recipe.pantry_match["missing_count"], -recipe.pantry_match["covered_count"], recipe.total_time, recipe.title.casefold()))
+    ready_count = sum(recipe.pantry_match["ready"] for recipe in recipes)
+    if request.GET.get("ready") == "1":
+        recipes = [recipe for recipe in recipes if recipe.pantry_match["ready"]]
+    return render(request, "kitchen/discover.html", {"recipes": recipes, "ready_count": ready_count, "q": query, "ingredients": extra_text, "extras": sorted(extras), "servings": servings,
+        "only_ready": request.GET.get("ready") == "1", "page": "discover", "page_title": "Cook with my pantry", "discovering": True})
+
+def cook_recipe(request, pk):
+    recipe = get_object_or_404(Recipe.objects.prefetch_related("ingredients"), pk=pk)
+    plan = None
+    if request.GET.get("plan"):
+        plan_id = request.GET["plan"]
+        if not plan_id.isascii() or not plan_id.isdigit() or len(plan_id) > 18:
+            from django.http import Http404
+            raise Http404("Meal not found")
+        plan = get_object_or_404(MealPlan, pk=int(plan_id), recipe=recipe)
+    try:
+        servings = requested_servings(request, plan.servings if plan else recipe.servings)
+    except ValueError as error:
+        servings = plan.servings if plan else recipe.servings
+        messages.error(request, str(error))
+    form = CookForm(request.POST or None, initial={"servings": servings, "cooked_on": timezone.localdate(), "action_token": uuid.uuid4()})
+    if request.method == "POST":
+        if form.is_valid():
+            try:
+                record, created = record_cooking(recipe, form.cleaned_data["servings"], form.cleaned_data["cooked_on"], form.cleaned_data["action_token"], form.cleaned_data["notes"], plan)
+            except ValueError as error:
+                messages.error(request, str(error))
+            else:
+                messages.success(request, "Meal recorded and pantry updated. Enjoy every bite!" if created else "This meal was already recorded. Your pantry hasn’t been deducted again.")
+                return redirect(reverse("cooking_history") + f"#cooking-{record.pk}")
+        else:
+            messages.error(request, "Check the details below before recording this meal.")
+        servings = form.cleaned_data.get("servings", servings)
+    active_record = CookingRecord.objects.filter(plan=plan, undone_at__isnull=True).first() if plan else None
+    profile, _ = KitchenSettings.objects.get_or_create(pk=1)
+    return render(request, "kitchen/cook_recipe.html", {"recipe": recipe, "plan": plan, "form": form, "servings": servings,
+        "match": recipe_match(recipe, servings, system=profile.measurement_system), "active_record": active_record, "today": timezone.localdate(), "page": "history", "page_title": "Record a cooked meal"})
+
+def cooking_history(request):
+    records = list(CookingRecord.objects.select_related("recipe", "plan").all())
+    for record in records:
+        record.deductions_display = [deduction_display(item) for item in record.deductions]
+    return render(request, "kitchen/cooking_history.html", {"records": records, "cooked_count": sum(not record.undone_at for record in records), "page": "history", "page_title": "Cooking history"})
+
+@require_POST
+def cooking_undo(request, pk):
+    record = get_object_or_404(CookingRecord, pk=pk)
+    changed = undo_cooking(record)
+    messages.success(request, "Cooking record undone. The deducted ingredients are back in your pantry." if changed else "This record was already undone. Stock hasn’t been added twice.")
+    return redirect(reverse("cooking_history") + f"#cooking-{pk}")
+
+@require_POST
+def shopping_stock(request):
+    start = week_start(request.POST.get("week"))
+    with transaction.atomic():
+        lock_kitchen()
+        items, _ = shopping_items(start)
+        checked = [item for item in items if item["checked"]]
+        profile = KitchenSettings.objects.get(pk=1)
+        for item in checked:
+            _add_stock(item["name"], item["quantity"], item["unit"], profile.measurement_system)
+        ShoppingCheck.objects.filter(week=start, key__in=[item["key"] for item in checked]).update(checked=False)
+    messages.success(request, f"{len(checked)} checked ingredient{'s' if len(checked) != 1 else ''} added to your pantry." if checked else "No checked shortages to add. Your pantry is already up to date.")
+    return redirect(reverse("shopping") + "?" + urlencode({"week": start.isoformat()}))

@@ -1,0 +1,56 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbfaf7"><meta name="description" content="A little inspiration. A lot of delicious possibilities. Keep your recipes, plan your meals, and make cooking a joy with Savor.">
+  <title>{% block title %}{{ page_title }}{% endblock %} · Savor</title>
+  <link rel="icon" href="{% static 'images/favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/savor.css' %}">
+  <script src="{% static 'js/savor.js' %}" defer></script>
+</head>
+<body>
+{% include 'kitchen/icons.html' %}
+<div hidden>{% csrf_token %}</div>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="sidebar-backdrop" data-close-sidebar></div>
+<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+  <a href="{% url 'recipe_box' %}" class="brand"><span class="brand-icon">{% include 'kitchen/icon.html' with name='chef' %}</span>savor<span class="brand-dot">.</span></a>
+  <p class="brand-subtitle">A little joy in every meal.</p>
+  <div class="nav-label">YOUR KITCHEN</div>
+  <nav class="main-nav">
+    <a class="nav-link {% if page == 'recipes' %}active{% endif %}" href="{% url 'recipe_box' %}" {% if page == 'recipes' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='book' %}<span>Recipe box</span><span class="nav-count">{{ recipe_count }}</span></a>
+    <a class="nav-link {% if page == 'planner' %}active{% endif %}" href="{% url 'planner' %}" {% if page == 'planner' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='calendar' %}<span>Meal planner</span></a>
+    <a class="nav-link {% if page == 'shopping' %}active{% endif %}" href="{% url 'shopping' %}" {% if page == 'shopping' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='bag' %}<span>Shopping list</span></a>
+    <a class="nav-link {% if page == 'favorites' %}active{% endif %}" href="{% url 'favorites' %}" {% if page == 'favorites' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='heart' %}<span>Favorites</span><span class="nav-count" data-favorite-count>{{ favorite_count }}</span></a>
+    <a class="nav-link {% if page == 'pantry' %}active{% endif %}" href="{% url 'pantry' %}" {% if page == 'pantry' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='leaf' %}<span>My pantry</span><span class="nav-count">{{ pantry_count }}</span></a>
+    <a class="nav-link {% if page == 'discover' %}active{% endif %}" href="{% url 'discover' %}" {% if page == 'discover' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='spark' %}<span>Cook with my pantry</span></a>
+    <a class="nav-link {% if page == 'history' %}active{% endif %}" href="{% url 'cooking_history' %}" {% if page == 'history' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='chef' %}<span>Cooking history</span></a>
+  </nav>
+  <div class="collections-heading nav-label">COLLECTIONS<span class="collection-decoration">{% include 'kitchen/icon.html' with name='grid' %}</span></div>
+  <nav class="collection-nav" aria-label="Recipe collections">
+    <a class="collection-link {% if selected_filter == 'quick' %}selected{% endif %}" href="{% url 'recipe_box' %}?filter=quick"><span class="collection-dot dot-peach"></span>Quick & easy<span>{{ quick_count }}</span></a>
+    <a class="collection-link {% if selected_filter == 'vegetarian' %}selected{% endif %}" href="{% url 'recipe_box' %}?filter=vegetarian"><span class="collection-dot dot-green"></span>Plant-powered<span>{{ vegetarian_count }}</span></a>
+    <a class="collection-link {% if selected_filter == 'baking' %}selected{% endif %}" href="{% url 'recipe_box' %}?filter=baking"><span class="collection-dot dot-gold"></span>Something sweet<span>{{ baking_count }}</span></a>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="kitchen-note"><span class="note-icon">{% include 'kitchen/icon.html' with name='leaf' %}</span><p>Made with love.<br><span>Shared around the table.</span></p><span class="note-swirl">〰</span></div>
+    <a class="nav-link {% if page == 'settings' %}active{% endif %}" href="{% url 'settings' %}">{% include 'kitchen/icon.html' with name='settings' %}<span>Settings</span></a>
+    <button class="nav-link" data-open-dialog="help-dialog">{% include 'kitchen/icon.html' with name='help' %}<span>A little help</span></button>
+    <a href="{% url 'settings' %}" class="profile-link"><span class="avatar">{{ profile.name|first|upper }}</span><span><strong>{{ profile.name }}’s kitchen</strong><small>{{ profile.kitchen_name }}</small></span>{% include 'kitchen/icon.html' with name='down' %}</a>
+  </div>
+</aside>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="topbar-title"><button class="icon-button mobile-menu" data-toggle-sidebar aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">{% include 'kitchen/icon.html' with name='menu' %}</button>{% include 'kitchen/icon.html' with name='book' %}<span>{{ page_title }}</span></div>
+    <div class="topbar-right"><span class="topbar-message">Good food. Good mood.</span><span class="topbar-divider"></span><button class="icon-button" data-open-dialog="help-dialog" aria-label="Help">{% include 'kitchen/icon.html' with name='help' %}</button><a class="avatar avatar-small" href="{% url 'settings' %}" aria-label="Kitchen settings">{{ profile.name|first|upper }}</a></div>
+  </header>
+  <main id="main" class="main-content">
+    {% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<div class="message {{ message.tags }}">{% include 'kitchen/icon.html' with name='check' %}<span>{{ message }}</span><button class="icon-button" data-dismiss-message aria-label="Dismiss message">{% include 'kitchen/icon.html' with name='close' %}</button></div>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+    <footer class="page-footer"><span>A little inspiration. A lot of delicious possibilities.</span><span>Made for the love of food <span class="tiny-heart">♡</span></span></footer>
+  </main>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<dialog id="help-dialog" class="dialog"><div class="dialog-top"><span class="eyebrow">WELCOME TO YOUR KITCHEN</span><button class="icon-button" data-close-dialog aria-label="Close help">{% include 'kitchen/icon.html' with name='close' %}</button></div><h2>A little help, a lot of joy.</h2><p>Savor is your personal space for the food you love.</p><div class="help-items"><p><strong>1. Fill your recipe box</strong><br>Add your own recipes or explore the ones already here. Tap a heart to keep your favorites close.</p><p><strong>2. Make a little plan</strong><br>Open the meal planner and choose a recipe for any day. You can adjust servings for each meal.</p><p><strong>3. Shop with ease</strong><br>Add your pantry stock. Your shopping list combines uncooked meals and subtracts what you already have. Add checked purchases straight to your pantry.</p><p><strong>4. Cook, record, repeat</strong><br>Find recipes with the fewest missing ingredients, then use “I cooked this” to update stock. Cooking history keeps your meals and lets you undo a mistake.</p></div><p class="muted small">This is a personal, single-kitchen app. Your recipes and plans are saved on this computer.</p><button class="button button-primary" data-close-dialog>Let’s get cooking {% include 'kitchen/icon.html' with name='arrow' %}</button></dialog>
+{% block dialogs %}{% endblock %}
+</body></html>

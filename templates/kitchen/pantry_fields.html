@@ -1,0 +1,8 @@
+<datalist id="pantry-ingredient-names">{% for name in ingredient_names %}<option value="{{ name }}">{% endfor %}</datalist>
+<datalist id="ingredient-units"><option value="g"><option value="kg"><option value="oz"><option value="lb"><option value="ml"><option value="l"><option value="tsp"><option value="tbsp"><option value="cups"><option value="each"><option value="cloves"><option value="cans"></datalist>
+{{ form.non_field_errors }}
+<label class="field">Ingredient {{ form.name }}{{ form.name.errors }}</label>
+<div class="form-row"><label class="field">Amount on hand {{ form.quantity }}{{ form.quantity.errors }}</label><label class="field">Unit {{ form.unit }}{{ form.unit.errors }}</label></div>
+<label class="field">Cups &amp; spoons {{ form.measurement_system }}{{ form.measurement_system.errors }}</label>
+<div class="form-row"><label class="field">Keep it in {{ form.location }}{{ form.location.errors }}</label><label class="field">Use by <span class="optional">optional</span>{{ form.expires_on }}{{ form.expires_on.errors }}</label></div>
+<p class="muted small">Fractions welcome: 1½, 1/3, or 0.5. Leave the unit blank for whole items. Items past their use-by date are excluded from available stock.</p>
