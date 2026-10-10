@@ -1,0 +1,29 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("", views.recipe_box, name="recipe_box"),
+    path("favorites/", views.recipe_box, {"favorites": True}, name="favorites"),
+    path("recipes/new/", views.recipe_edit, name="recipe_create"),
+    path("recipes/<int:pk>/", views.recipe_detail, name="recipe_detail"),
+    path("recipes/<int:pk>/scale/", views.recipe_scale, name="recipe_scale"),
+    path("recipes/<int:pk>/cook/", views.cook_recipe, name="cook_recipe"),
+    path("recipes/<int:pk>/edit/", views.recipe_edit, name="recipe_edit"),
+    path("recipes/<int:pk>/delete/", views.recipe_delete, name="recipe_delete"),
+    path("recipes/<int:pk>/favorite/", views.favorite_toggle, name="favorite_toggle"),
+    path("planner/", views.planner, name="planner"),
+    path("planner/add/", views.plan_add, name="plan_add"),
+    path("planner/<int:pk>/remove/", views.plan_remove, name="plan_remove"),
+    path("shopping/", views.shopping, name="shopping"),
+    path("shopping/check/", views.shopping_check, name="shopping_check"),
+    path("shopping/export/", views.shopping_export, name="shopping_export"),
+    path("shopping/stock/", views.shopping_stock, name="shopping_stock"),
+    path("pantry/", views.pantry, name="pantry"),
+    path("pantry/add/", views.pantry_add, name="pantry_add"),
+    path("pantry/<int:pk>/edit/", views.pantry_edit, name="pantry_edit"),
+    path("pantry/<int:pk>/delete/", views.pantry_delete, name="pantry_delete"),
+    path("cook-with-pantry/", views.discover, name="discover"),
+    path("cooking-history/", views.cooking_history, name="cooking_history"),
+    path("cooking-history/<int:pk>/undo/", views.cooking_undo, name="cooking_undo"),
+    path("settings/", views.settings_view, name="settings"),
+]
