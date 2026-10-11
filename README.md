@@ -29,6 +29,7 @@ To start with your own collection, run migrations and skip `seed_demo`. Use `see
 
 - Browse twelve starter recipes with photographs, measured ingredients, cooking steps, and cook’s notes.
 - Add, edit, and delete recipes, including your own uploaded photo or an image URL.
+- Choose **Paste a recipe** to turn plain text into an editable draft with a title, ingredient amounts and units, and cooking steps. Review and save it through the normal recipe editor.
 - Search recipe names, descriptions, and ingredients. Filter vegetarian, quick, high-protein, sweet, and seasonal recipes; sort by date, name, or cooking time.
 - Save favorites and switch between grid and list views. Press **⌘ K** or **Ctrl K** to focus recipe search.
 - Type any positive whole serving count or use the +/− controls. Ingredients update as kitchen fractions such as **1½ cups**, **⅓ cup**, and **¾ tsp**, and the chosen count carries into the meal planner.
@@ -40,6 +41,8 @@ To start with your own collection, run migrations and skip `seed_demo`. Use `see
 - Find meals in **Cook with my pantry**, ranked by how few ingredients are missing for your chosen serving count. Partial stock counts as missing; ready-to-cook recipes have enough of every measured ingredient. Add comma-separated ingredients for a quick search, filter to recipes with all ingredients, or choose **Fewest missing** in the recipe box.
 - Enter ingredient quantities as **1½**, **1 1/2**, **1/3**, or decimals. Fractions are stored and calculated exactly, without rounding intermediate quantities.
 - Personalize your name and kitchen name in Settings.
+- See estimated calories, protein, carbohydrates, and fat per serving or for the whole batch. Nutrition recalculates from the local table when servings, ingredients, or food values change.
+- Browse and edit the **Nutrition table**, with 57 starter foods from USDA FoodData Central. Add product-label values per 100 g and explicit ingredient matching names, plus optional household portion weights.
 
 ## Data and app scope
 
@@ -65,6 +68,30 @@ Cooking and undo operations are atomic, and repeated submissions do not deduct o
 
 Extra ingredients typed into recipe discovery apply only to that search. Their quantities are unknown, so matches clearly ask you to check amounts. Add measured stock to the pantry for quantity-verified **Ready to cook** results. The pantry starts empty so it reflects what you actually own.
 
+### Pasting recipes
+
+**Paste a recipe** is available in the recipe box and on the new-recipe page. Paste one recipe, choose **Create editable draft**, then check and edit the filled-in recipe form. Creating a draft does not save a recipe, add meals, or change pantry stock. Saving uses the existing recipe and ingredient validation, so imported recipes work with exact serving calculations, pantry matching, shopping lists, and nutrition.
+
+The local parser recognizes common headings (Ingredients, Instructions, Directions, Method, Notes), Markdown headings, bullets, numbered steps, wrapped numbered instructions, fractions such as `1½` and `1 1/2`, decimal amounts, common unit names and abbreviations, and explicit measuring standards such as `US cups`. It also reads servings and labeled prep/cook times in hours or minutes. For simple text without headings, it can infer an ingredient block and a method; review those boundaries. Unnumbered method lines become separate steps.
+
+Amounts are never invented. Ranges, approximate measures, and unquantified lines such as “salt to taste” are flagged and leave the amount blank until you resolve them or move the line to notes. Package sizes, alternative weights, and unfamiliar units are also flagged. Preparation details and original ingredient lines remain in cook’s notes; the full pasted text is visible while reviewing, including after a validation error. No API key or external service is needed, and the paste/review/save flow works without JavaScript.
+
+Missing servings start at **2**, missing prep/cook times at **0**, and the draft uses your kitchen’s measuring standard; the review explicitly asks you to check these. Missing title, method, or ingredients remain editable fields. Limits are 30,000 characters, 500 lines, and 100 ingredients per recipe. Larger input is rejected without truncation. This is a conservative text importer, so unusual layouts or prose recipes can require manual edits.
+
+### Nutrition estimates
+
+The local SQLite nutrition table is initialized automatically by migrations, with 57 reviewed entries extracted from [USDA FoodData Central SR Legacy](https://fdc.nal.usda.gov/download-datasets/). Each entry retains its original source description, FDC identifier, source link, calories, protein, carbohydrate, and fat per 100 g. The frozen source selection and rebuild tool are included in `tools/build_nutrition_seed.py`; the app needs no API key or network connection for calculations. Calories come from the source energy value, rather than being inferred from protein/carbs/fat.
+
+Recipes match foods through explicit normalized names in the table. Dry and cooked rice are distinct. The default generic entries assume whole milk, whole-milk Greek yogurt, dry grains/pasta, full-fat canned coconut milk, and edible raw meat/fish weights. Proxy matches, such as Parmesan composition for vegetarian hard cheese, are recorded in the entry's description and portion notes. Add separate entries and matching names for a different brand or preparation.
+
+Mass measurements convert to grams using the existing exact factors. For nutrition only, volumes and item counts can use food-specific typical weights: grams per US cup, whole item, slice, clove, or can. Typical conversions are labeled in the ingredient breakdown. USDA household cup weights are treated as US customary cups (236.5882365 ml); weights derived from spoons assume 16 tbsp or 48 tsp per cup. Metric and explicit measuring standards are converted before estimating grams. These are household estimates, not precise densities. The sourdough slice uses an explicitly labeled app estimate of 40 g; other starter weights derive from reviewed USDA portions. Unknown package sizes and unsupported units require a measured gram amount. **These weights never change pantry or shopping conversions.**
+
+Ingredients without a food match or usable weight are visibly omitted, with a **Partial estimate** label and a list of gaps. If no ingredient can be calculated, cards show a dash instead of zero. Actual zero-calorie foods remain included. Calculations use exact fractions until display: calories round to whole kcal and macros to 0.1 g; tiny positive values display as `<1` kcal or `<0.1` g. Brands, edible yield, oil left in a pan, cooking losses, and discarded ingredients can affect actual nutrition.
+
+Scaling a recipe increases the entire batch's ingredient amounts and nutrient totals. Nutrition **per serving stays constant** because the batch is divided into proportionally more servings. Editing the recipe's base yield without increasing ingredients changes the per-serving result. Both views and the batch summary update automatically, including after reload and without JavaScript.
+
+See [the proposed leftovers design](docs/leftovers-design.md) for the next feature's batch/portion accounting and the agreed empty-slot policy. Leftover scheduling is a design proposal, not yet implemented.
+
 Images and fonts are included under `static/`, so the starter experience does not require an external image or font service at runtime. Photos are illustrative. Your own external image URLs still need an internet connection.
 
 ## Tests
@@ -84,6 +111,8 @@ For the browser smoke test, install the development requirements, start the serv
 .venv/bin/python tools/browser_smoke.py
 .venv/bin/python tools/browser_measurements.py
 .venv/bin/python tools/browser_pantry.py
+.venv/bin/python tools/browser_nutrition.py
+.venv/bin/python tools/browser_recipe_import.py
 ```
 
 The browser script uses an installed Google Chrome through Playwright. It checks real UI interactions, persistence, serving calculations, downloads, and mobile layouts, and saves screenshots in `test-artifacts/`. Run it on a fresh demo database: it expects the twelve starter recipes, creates a temporary recipe and future meal slot, and removes them after verification.
@@ -91,6 +120,10 @@ The browser script uses an installed Google Chrome through Playwright. It checks
 The measurements browser test creates two temporary recipes, verifies fraction entry and 50-serving scaling, plans both recipes, and checks the merged shopping list and download. It also captures desktop and mobile screenshots before removing the temporary recipes and their meal slots.
 
 The pantry browser test starts its own temporary SQLite database and local server. It exercises pantry top-ups and edits, expiry filters, recipe matching and extra-ingredient search, weekly stock subtraction, shopping restocking, cooking receipts, undo, and mobile layouts. It removes the temporary kitchen afterward and leaves your main database untouched.
+
+The nutrition browser test also uses an isolated kitchen. It checks food entry/edit/removal, live calories and macros, batch and per-serving scaling, source cup weights, partial estimates, reload persistence, no-JavaScript forms, and mobile layouts. Backend nutrition tests cover exact arithmetic, source standards, count weights, zero versus missing data, explicit matching, table validation, recipe edits, and independence from shopping conversions.
+
+The recipe-import browser test uses an isolated kitchen to exercise paste/review/cancel/save, editable extracted fields, dynamic ingredient rows, exact scaling, nutrition, planner and shopping integration, correction of an invalid draft, mobile layouts, and the no-JavaScript flow. Backend importer tests cover ambiguous quantities, package sizes, units, missing sections, limits, source preservation, HTML escaping, CSRF, and recipe saving.
 
 ## Project structure
 

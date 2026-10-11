@@ -5,6 +5,7 @@ urlpatterns = [
     path("", views.recipe_box, name="recipe_box"),
     path("favorites/", views.recipe_box, {"favorites": True}, name="favorites"),
     path("recipes/new/", views.recipe_edit, name="recipe_create"),
+    path("recipes/import/", views.recipe_import, name="recipe_import"),
     path("recipes/<int:pk>/", views.recipe_detail, name="recipe_detail"),
     path("recipes/<int:pk>/scale/", views.recipe_scale, name="recipe_scale"),
     path("recipes/<int:pk>/cook/", views.cook_recipe, name="cook_recipe"),
@@ -26,4 +27,8 @@ urlpatterns = [
     path("cooking-history/", views.cooking_history, name="cooking_history"),
     path("cooking-history/<int:pk>/undo/", views.cooking_undo, name="cooking_undo"),
     path("settings/", views.settings_view, name="settings"),
+    path("nutrition/", views.nutrition_table, name="nutrition_table"),
+    path("nutrition/foods/new/", views.nutrition_food_edit, name="nutrition_food_create"),
+    path("nutrition/foods/<int:pk>/edit/", views.nutrition_food_edit, name="nutrition_food_edit"),
+    path("nutrition/foods/<int:pk>/delete/", views.nutrition_food_delete, name="nutrition_food_delete"),
 ]

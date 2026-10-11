@@ -1,8 +1,20 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Ingredient, KitchenSettings, MealPlan, Recipe, PantryItem
+from .models import Ingredient, KitchenSettings, MealPlan, Recipe, PantryItem, NutritionFood, NutritionAlias
 from django.utils import timezone
-from .measurements import MAX_SERVINGS, parse_quantity, format_quantity
+from .measurements import MAX_SERVINGS, parse_quantity, format_quantity, normalize_name
+from .recipe_import import MAX_TEXT_LENGTH
+
+
+class RecipePasteForm(forms.Form):
+    text = forms.CharField(label="Recipe text", max_length=MAX_TEXT_LENGTH, strip=False,
+        widget=forms.Textarea(attrs={"rows": 18, "placeholder": "Lemon pancakes\nServes 4\nPrep time: 10 minutes\nCook time: 15 minutes\n\nIngredients\n1½ cups plain flour\n2 eggs\n1 cup milk\n\nMethod\n1. Whisk the ingredients together.\n2. Cook spoonfuls in a warm pan until golden.", "spellcheck": "false", "aria-describedby": "paste-help"}))
+
+    def clean_text(self):
+        text = self.cleaned_data["text"]
+        if not text.strip():
+            raise forms.ValidationError("Paste a recipe first.")
+        return text
 
 class RecipeForm(forms.ModelForm):
     class Meta:
@@ -109,3 +121,46 @@ class CookForm(forms.Form):
         if day.year < 1900 or day > timezone.localdate():
             raise forms.ValidationError("Choose today or a past date after 1900.")
         return day
+
+
+class NutritionFoodForm(forms.ModelForm):
+    aliases = forms.CharField(required=False, max_length=4000, label="Matching ingredient names", widget=forms.Textarea(attrs={"rows": 2, "placeholder": "e.g. plain flour, all-purpose flour"}))
+
+    class Meta:
+        model = NutritionFood
+        fields = ["name", "description", "calories", "protein", "carbs", "fat", "cup_grams", "item_grams", "slice_grams", "clove_grams", "can_grams", "portion_notes", "source_label", "source_url"]
+        labels = {"name": "Food name", "description": "Food and preparation", "calories": "Calories (kcal)", "protein": "Protein (g)", "carbs": "Carbohydrates (g)", "fat": "Fat (g)", "cup_grams": "Grams per US cup", "item_grams": "Grams per whole item", "slice_grams": "Grams per slice", "clove_grams": "Grams per clove", "can_grams": "Grams per can", "portion_notes": "Portion assumptions", "source_label": "Source or product label", "source_url": "Source link"}
+        widgets = {"portion_notes": forms.Textarea(attrs={"rows": 3}), "description": forms.TextInput(attrs={"placeholder": "e.g. dry rice, cooked rice, or a specific brand"}), "source_url": forms.URLInput(attrs={"placeholder": "https://…"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and not self.is_bound:
+            self.initial["aliases"] = ", ".join(self.instance.aliases.exclude(name=normalize_name(self.instance.name)).values_list("name", flat=True))
+
+    def clean_name(self):
+        return " ".join(self.cleaned_data["name"].split())
+
+    def clean(self):
+        cleaned = super().clean()
+        text = cleaned.get("aliases", "")
+        names = {normalize_name(value) for value in text.replace("\n", ",").split(",") if value.strip()}
+        if cleaned.get("name"):
+            names.add(normalize_name(cleaned["name"]))
+        if any(len(name) > 120 for name in names) or len(names) > 50:
+            self.add_error("aliases", "Use at most 50 names, each no longer than 120 characters.")
+        conflicts = NutritionAlias.objects.filter(name__in=names).exclude(food_id=self.instance.pk).values_list("name", flat=True)
+        if conflicts:
+            self.add_error("aliases", "Already matched to another food: " + ", ".join(conflicts))
+        self.alias_names = names
+        return cleaned
+
+    def save_aliases(self):
+        self.instance.aliases.exclude(name__in=self.alias_names).delete()
+        for name in self.alias_names:
+            NutritionAlias.objects.get_or_create(name=name, defaults={"food": self.instance})
+
+    def save(self, commit=True):
+        food = super().save(commit=commit)
+        if commit:
+            self.save_aliases()
+        return food

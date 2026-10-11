@@ -6,14 +6,18 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import F, Q, Exists, OuterRef
+from django.core.paginator import Paginator
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from .forms import IngredientFormSet, MealPlanForm, RecipeForm, SettingsForm, PantryForm, CookForm
-from .models import KitchenSettings, MealPlan, Recipe, ShoppingCheck, PantryItem, CookingRecord, Ingredient
-from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, quantity_display, shopping_display
+from .forms import IngredientFormSet, MealPlanForm, RecipeForm, SettingsForm, PantryForm, CookForm, NutritionFoodForm, RecipePasteForm
+from .models import KitchenSettings, MealPlan, Recipe, ShoppingCheck, PantryItem, CookingRecord, Ingredient, NutritionFood, NutritionAlias
+from .nutrition import recipe_nutrition
+from .recipe_import import parse_recipe
+from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, quantity_display, shopping_display, parse_quantity, format_quantity
 from .inventory import pantry_balances, recipe_match, add_stock, lock_kitchen, record_cooking, undo_cooking, deduction_display, _add_stock
 
 def week_start(value=None):
@@ -74,7 +78,7 @@ def recipe_detail(request, pk):
     except ValueError as error:
         servings = recipe.servings
         messages.error(request, str(error))
-    return render(request, "kitchen/recipe_detail.html", {"recipe": recipe, "servings": servings, "scaled_ingredients": scaled_ingredients(recipe, servings), "pantry_match": recipe_match(recipe, servings), "page": "recipes", "page_title": "Recipe box", "today": date.today(), "all_recipes": Recipe.objects.all()})
+    return render(request, "kitchen/recipe_detail.html", {"recipe": recipe, "servings": servings, "scaled_ingredients": scaled_ingredients(recipe, servings), "pantry_match": recipe_match(recipe, servings), "nutrition": recipe_nutrition(recipe, servings, request.GET.get("nutrition_basis")), "page": "recipes", "page_title": "Recipe box", "today": date.today(), "all_recipes": Recipe.objects.all()})
 
 def recipe_scale(request, pk):
     recipe = get_object_or_404(Recipe.objects.prefetch_related("ingredients"), pk=pk)
@@ -84,7 +88,72 @@ def recipe_scale(request, pk):
         return JsonResponse({"error": str(error)}, status=400)
     ingredients = [{key: value for key, value in item.items() if key != "quantity"} for item in scaled_ingredients(recipe, servings)]
     match = recipe_match(recipe, servings)
-    return JsonResponse({"servings": servings, "ingredients": ingredients, "pantry": {key: match[key] for key in ["missing_count", "covered_count", "total_count", "ready"]}})
+    nutrition = recipe_nutrition(recipe, servings, request.GET.get("nutrition_basis"))
+    return JsonResponse({"servings": servings, "ingredients": ingredients, "pantry": {key: match[key] for key in ["missing_count", "covered_count", "total_count", "ready"]},
+        "nutrition": {key: nutrition[key] for key in ["basis", "available", "complete", "matched_count", "total_count", "estimated_count", "per_serving", "batch", "cards"]},
+        "nutrition_html": render_to_string("kitchen/nutrition_panel.html", {"nutrition": nutrition, "recipe": recipe, "servings": servings}, request=request)})
+
+
+def nutrition_table(request):
+    query = request.GET.get("q", "").strip()
+    foods = NutritionFood.objects.prefetch_related("aliases")
+    if query:
+        foods = foods.filter(Q(name__icontains=query) | Q(description__icontains=query) | Q(aliases__name__icontains=query)).distinct()
+    paginator = Paginator(foods, 25)
+    return render(request, "kitchen/nutrition_table.html", {"foods": paginator.get_page(request.GET.get("p")), "food_count": NutritionFood.objects.count(), "q": query, "page": "nutrition", "page_title": "Nutrition table"})
+
+
+def nutrition_food_edit(request, pk=None):
+    food = get_object_or_404(NutritionFood, pk=pk) if pk else NutritionFood()
+    form = NutritionFoodForm(request.POST or None, instance=food, initial={"name": request.GET.get("name", "")[:120]} if pk is None else None)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            lock_kitchen()
+            # Check again after locking to serialize concurrent alias edits.
+            if NutritionAlias.objects.filter(name__in=form.alias_names).exclude(food_id=food.pk).exists():
+                form.add_error("aliases", "One of these names was just matched to another food. Choose a different matching name.")
+            else:
+                form.save()
+                messages.success(request, "Nutrition table updated. Recipe estimates now use these values.")
+                return redirect("nutrition_table")
+    return render(request, "kitchen/nutrition_food_form.html", {"form": form, "food": food, "editing": bool(pk), "page": "nutrition", "page_title": "Edit food nutrition" if pk else "Add food nutrition"})
+
+
+@require_POST
+def nutrition_food_delete(request, pk):
+    with transaction.atomic():
+        lock_kitchen()
+        get_object_or_404(NutritionFood, pk=pk).delete()
+    messages.success(request, "Food removed. Recipes will show a nutrition gap for its matching ingredients.")
+    return redirect("nutrition_table")
+
+def recipe_import(request):
+    form = RecipePasteForm(request.POST if request.method == "POST" else None)
+    if request.method == "POST" and form.is_valid():
+        profile, _ = KitchenSettings.objects.get_or_create(pk=1)
+        try:
+            draft = parse_recipe(form.cleaned_data["text"], profile.measurement_system)
+        except ValueError as error:
+            form.add_error("text", str(error))
+        else:
+            recipe = Recipe()
+            recipe_form = RecipeForm(instance=recipe, initial=draft["initial"])
+            initial_ingredients = []
+            for row in draft["ingredients"]:
+                values = dict(row)
+                if values["quantity"]:
+                    display = format_quantity(parse_quantity(values["quantity"]))
+                    if not display.startswith("≈"):
+                        values["quantity"] = display
+                initial_ingredients.append(values)
+            formset = IngredientFormSet(instance=recipe, prefix="ingredients", initial=initial_ingredients)
+            # Inline formsets limit initial rows to the number of extra forms.
+            # min_num contributes one row, including for an empty draft.
+            formset.extra = max(1, len(draft["ingredients"])) - 1
+            return render(request, "kitchen/recipe_form.html", {"form": recipe_form, "formset": formset,
+                "recipe": recipe, "editing": False, "import_draft": draft, "page": "recipes", "page_title": "Review pasted recipe"})
+    return render(request, "kitchen/recipe_import.html", {"form": form, "page": "recipes", "page_title": "Paste a recipe"})
+
 
 def recipe_edit(request, pk=None):
     recipe = get_object_or_404(Recipe, pk=pk) if pk else Recipe()
@@ -106,7 +175,13 @@ def recipe_edit(request, pk=None):
             messages.success(request, "Recipe updated. Looking delicious!" if pk else "A new recipe for your box. Happy cooking!")
             return redirect("recipe_detail", pk=recipe.pk)
         messages.error(request, "A few details need your attention. Please check the fields below.")
-    return render(request, "kitchen/recipe_form.html", {"form": form, "formset": formset, "recipe": recipe, "editing": bool(pk), "page": "recipes", "page_title": "Edit recipe" if pk else "New recipe"})
+    import_draft = None
+    if not pk and request.method == "POST" and request.POST.get("import_source"):
+        try:
+            import_draft = parse_recipe(request.POST["import_source"], profile.measurement_system)
+        except ValueError:
+            pass
+    return render(request, "kitchen/recipe_form.html", {"form": form, "formset": formset, "recipe": recipe, "editing": bool(pk), "import_draft": import_draft, "page": "recipes", "page_title": "Edit recipe" if pk else "New recipe"})
 
 @require_POST
 def recipe_delete(request, pk):

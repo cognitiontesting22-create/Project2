@@ -4,6 +4,7 @@ from django.templatetags.static import static
 from .measurements import MEASUREMENT_SYSTEMS, validate_quantity, validate_stock_quantity
 from django.utils import timezone
 import uuid
+from decimal import Decimal
 
 class Recipe(models.Model):
     CATEGORY_CHOICES = [(x, x) for x in ["Breakfast", "Lunch", "Dinner", "Dessert", "Snack"]]
@@ -135,3 +136,44 @@ class CookingRecord(models.Model):
 
     def __str__(self):
         return f"{self.recipe_title} · {self.cooked_on}"
+
+
+class NutritionFood(models.Model):
+    """Local composition values per 100 g of edible food, with optional weights."""
+    name = models.CharField(max_length=120, unique=True)
+    description = models.CharField(max_length=255, blank=True)
+    calories = models.DecimalField(max_digits=9, decimal_places=3, validators=[MinValueValidator(0), MaxValueValidator(1000)])
+    protein = models.DecimalField(max_digits=8, decimal_places=3, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    carbs = models.DecimalField(max_digits=8, decimal_places=3, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    fat = models.DecimalField(max_digits=8, decimal_places=3, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    cup_grams = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(Decimal("0.0001"))])
+    item_grams = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(Decimal("0.0001"))])
+    slice_grams = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(Decimal("0.0001"))])
+    clove_grams = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(Decimal("0.0001"))])
+    can_grams = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(Decimal("0.0001"))])
+    portion_notes = models.TextField(blank=True, max_length=1000)
+    source_label = models.CharField(max_length=150, blank=True)
+    source_url = models.URLField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "pk"]
+
+    def __str__(self):
+        return self.name
+
+
+class NutritionAlias(models.Model):
+    name = models.CharField(max_length=120, unique=True)
+    food = models.ForeignKey(NutritionFood, related_name="aliases", on_delete=models.CASCADE)
+
+    class Meta:
+        ordering = ["name"]
+
+    def save(self, *args, **kwargs):
+        from .measurements import normalize_name
+        self.name = normalize_name(self.name)
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
