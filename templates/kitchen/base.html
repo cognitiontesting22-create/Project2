@@ -26,6 +26,7 @@
     <a class="nav-link {% if page == 'discover' %}active{% endif %}" href="{% url 'discover' %}" {% if page == 'discover' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='spark' %}<span>Cook with my pantry</span></a>
     <a class="nav-link {% if page == 'history' %}active{% endif %}" href="{% url 'cooking_history' %}" {% if page == 'history' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='chef' %}<span>Cooking history</span></a>
   </nav>
+    <a class="nav-link {% if page == 'nutrition' %}active{% endif %}" href="{% url 'nutrition_table' %}" {% if page == 'nutrition' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='flame' %}<span>Nutrition table</span></a>
   <div class="collections-heading nav-label">COLLECTIONS<span class="collection-decoration">{% include 'kitchen/icon.html' with name='grid' %}</span></div>
   <nav class="collection-nav" aria-label="Recipe collections">
     <a class="collection-link {% if selected_filter == 'quick' %}selected{% endif %}" href="{% url 'recipe_box' %}?filter=quick"><span class="collection-dot dot-peach"></span>Quick & easy<span>{{ quick_count }}</span></a>

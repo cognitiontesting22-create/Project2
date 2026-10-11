@@ -1,0 +1,927 @@
+[
+  {
+    "name": "Chicken thigh, raw",
+    "description": "Chicken, broilers or fryers, thigh, meat and skin, raw",
+    "calories": "221",
+    "protein": "16.52",
+    "fat": "16.61",
+    "carbs": "0.25",
+    "source_label": "USDA SR Legacy · FDC 172385",
+    "source_url": "https://fdc.nal.usda.gov/food-details/172385/nutrients",
+    "aliases": [
+      "chicken thighs",
+      "chicken thigh"
+    ],
+    "portion_notes": "Meat and skin. Listed weight is treated as edible, boneless weight; bones and cooking losses are not counted.",
+    "item_grams": "193"
+  },
+  {
+    "name": "Lemon, without peel",
+    "description": "Lemons, raw, without peel",
+    "protein": "1.1",
+    "fat": "0.3",
+    "carbs": "9.32",
+    "calories": "29",
+    "source_label": "USDA SR Legacy · FDC 167746",
+    "source_url": "https://fdc.nal.usda.gov/food-details/167746/nutrients",
+    "aliases": [
+      "lemons",
+      "lemon"
+    ],
+    "portion_notes": "58 g edible fruit. The estimate counts the listed lemon, including flesh, even if you use only its juice.",
+    "cup_grams": "212",
+    "item_grams": "58"
+  },
+  {
+    "name": "Olive oil",
+    "description": "Oil, olive, salad or cooking",
+    "fat": "100",
+    "carbs": "0",
+    "calories": "884",
+    "protein": "0",
+    "source_label": "USDA SR Legacy · FDC 171413",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171413/nutrients",
+    "aliases": [
+      "olive oil"
+    ],
+    "portion_notes": "Household cup: 216 g.",
+    "cup_grams": "216"
+  },
+  {
+    "name": "Garlic, raw",
+    "description": "Garlic, raw",
+    "carbs": "33.06",
+    "calories": "149",
+    "protein": "6.36",
+    "fat": "0.5",
+    "source_label": "USDA SR Legacy · FDC 169230",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169230/nutrients",
+    "aliases": [
+      "garlic"
+    ],
+    "portion_notes": "1 USDA clove: 3 g.",
+    "clove_grams": "3",
+    "cup_grams": "136"
+  },
+  {
+    "name": "Thyme, fresh",
+    "description": "Thyme, fresh",
+    "protein": "5.56",
+    "fat": "1.68",
+    "carbs": "24.45",
+    "calories": "101",
+    "source_label": "USDA SR Legacy · FDC 173470",
+    "source_url": "https://fdc.nal.usda.gov/food-details/173470/nutrients",
+    "aliases": [
+      "fresh thyme"
+    ],
+    "portion_notes": "Cup weight derived from a 0.8 g teaspoon.",
+    "cup_grams": "38.4"
+  },
+  {
+    "name": "Table salt",
+    "description": "Salt, table",
+    "protein": "0",
+    "fat": "0",
+    "carbs": "0",
+    "calories": "0",
+    "source_label": "USDA SR Legacy · FDC 173468",
+    "source_url": "https://fdc.nal.usda.gov/food-details/173468/nutrients",
+    "aliases": [
+      "salt",
+      "table salt"
+    ],
+    "portion_notes": "A measured zero-calorie ingredient; sodium is not part of this macro estimate.",
+    "cup_grams": "292"
+  },
+  {
+    "name": "Black pepper, ground",
+    "description": "Spices, pepper, black",
+    "fat": "3.26",
+    "carbs": "63.95",
+    "calories": "251",
+    "protein": "10.39",
+    "source_label": "USDA SR Legacy · FDC 170931",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170931/nutrients",
+    "aliases": [
+      "black pepper"
+    ],
+    "portion_notes": "Ground pepper household weight.",
+    "cup_grams": "110.4"
+  },
+  {
+    "name": "Quinoa, dry",
+    "description": "Quinoa, uncooked",
+    "protein": "14.12",
+    "fat": "6.07",
+    "carbs": "64.16",
+    "calories": "368",
+    "source_label": "USDA SR Legacy · FDC 168874",
+    "source_url": "https://fdc.nal.usda.gov/food-details/168874/nutrients",
+    "aliases": [
+      "quinoa",
+      "dry quinoa",
+      "uncooked quinoa"
+    ],
+    "portion_notes": "Dry grain, before adding cooking water.",
+    "cup_grams": "170"
+  },
+  {
+    "name": "Avocado, raw",
+    "description": "Avocados, raw, all commercial varieties",
+    "protein": "2",
+    "fat": "14.66",
+    "carbs": "8.53",
+    "calories": "160",
+    "source_label": "USDA SR Legacy · FDC 171705",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171705/nutrients",
+    "aliases": [
+      "avocado",
+      "avocados"
+    ],
+    "portion_notes": "1 USDA avocado: 201 g edible flesh; cup assumes cubes. Sizes vary.",
+    "cup_grams": "150",
+    "item_grams": "201"
+  },
+  {
+    "name": "Spinach, raw",
+    "description": "Spinach, raw",
+    "protein": "2.86",
+    "fat": "0.39",
+    "carbs": "3.63",
+    "calories": "23",
+    "source_label": "USDA SR Legacy · FDC 168462",
+    "source_url": "https://fdc.nal.usda.gov/food-details/168462/nutrients",
+    "aliases": [
+      "spinach",
+      "baby spinach"
+    ],
+    "portion_notes": "Loosely packed leaves.",
+    "cup_grams": "30"
+  },
+  {
+    "name": "Cucumber, with peel",
+    "description": "Cucumber, with peel, raw",
+    "carbs": "3.63",
+    "calories": "15",
+    "fat": "0.11",
+    "protein": "0.65",
+    "source_label": "USDA SR Legacy · FDC 168409",
+    "source_url": "https://fdc.nal.usda.gov/food-details/168409/nutrients",
+    "aliases": [
+      "cucumber"
+    ],
+    "portion_notes": "1 USDA cucumber: 301 g, approximately 8¼ inches long.",
+    "cup_grams": "104",
+    "item_grams": "301"
+  },
+  {
+    "name": "Greek yogurt, whole milk",
+    "description": "Yogurt, Greek, plain, whole milk",
+    "protein": "9",
+    "fat": "5",
+    "carbs": "3.98",
+    "calories": "97",
+    "source_label": "USDA SR Legacy · FDC 171304",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171304/nutrients",
+    "aliases": [
+      "Greek yogurt",
+      "whole milk Greek yogurt"
+    ],
+    "portion_notes": "Whole-milk plain yogurt. Choose a different entry for nonfat or sweetened yogurt."
+  },
+  {
+    "name": "Parsley, fresh",
+    "description": "Parsley, fresh",
+    "carbs": "6.33",
+    "calories": "36",
+    "fat": "0.79",
+    "protein": "2.97",
+    "source_label": "USDA SR Legacy · FDC 170416",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170416/nutrients",
+    "aliases": [
+      "fresh parsley",
+      "parsley"
+    ],
+    "portion_notes": "Cup assumes chopped parsley.",
+    "cup_grams": "60"
+  },
+  {
+    "name": "Pasta, dry",
+    "description": "Pasta, dry, enriched",
+    "carbs": "74.67",
+    "calories": "371",
+    "fat": "1.51",
+    "protein": "13.04",
+    "source_label": "USDA SR Legacy · FDC 169736",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169736/nutrients",
+    "aliases": [
+      "pasta",
+      "dry pasta",
+      "uncooked pasta"
+    ],
+    "portion_notes": "Dry enriched pasta. Cup assumes elbows; shape changes the weight.",
+    "cup_grams": "122"
+  },
+  {
+    "name": "Basil, fresh",
+    "description": "Basil, fresh",
+    "fat": "0.64",
+    "carbs": "2.65",
+    "calories": "23",
+    "protein": "3.15",
+    "source_label": "USDA SR Legacy · FDC 172232",
+    "source_url": "https://fdc.nal.usda.gov/food-details/172232/nutrients",
+    "aliases": [
+      "fresh basil",
+      "basil"
+    ],
+    "portion_notes": "Cup assumes whole leaves.",
+    "cup_grams": "24"
+  },
+  {
+    "name": "Pine nuts",
+    "description": "Nuts, pine nuts, dried",
+    "fat": "68.37",
+    "protein": "13.69",
+    "carbs": "13.08",
+    "calories": "673",
+    "source_label": "USDA SR Legacy · FDC 170591",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170591/nutrients",
+    "aliases": [
+      "pine nuts"
+    ],
+    "portion_notes": "Dried pine nuts.",
+    "cup_grams": "135"
+  },
+  {
+    "name": "Parmesan-style hard cheese",
+    "description": "Cheese, parmesan, hard",
+    "fat": "25",
+    "protein": "35.75",
+    "carbs": "3.22",
+    "calories": "392",
+    "source_label": "USDA SR Legacy · FDC 170848",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170848/nutrients",
+    "aliases": [
+      "vegetarian hard cheese",
+      "parmesan",
+      "hard cheese"
+    ],
+    "portion_notes": "Parmesan composition is a proxy for vegetarian hard cheese; brands vary."
+  },
+  {
+    "name": "Tomato, raw",
+    "description": "Tomatoes, red, ripe, raw, year round average",
+    "carbs": "3.89",
+    "calories": "18",
+    "fat": "0.2",
+    "protein": "0.88",
+    "source_label": "USDA SR Legacy · FDC 170457",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170457/nutrients",
+    "aliases": [
+      "tomato",
+      "tomatoes",
+      "raw tomatoes"
+    ],
+    "portion_notes": "1 medium whole tomato: 123 g. Cup assumes chopped or sliced.",
+    "slice_grams": "20",
+    "cup_grams": "180",
+    "item_grams": "123"
+  },
+  {
+    "name": "Cherry tomatoes",
+    "description": "Tomatoes, red, ripe, raw, year round average",
+    "carbs": "3.89",
+    "calories": "18",
+    "fat": "0.2",
+    "protein": "0.88",
+    "source_label": "USDA SR Legacy · FDC 170457",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170457/nutrients",
+    "aliases": [
+      "cherry tomatoes",
+      "cherry tomato"
+    ],
+    "portion_notes": "1 cherry tomato: 17 g; uses the USDA red-tomato composition.",
+    "cup_grams": "149",
+    "item_grams": "17"
+  },
+  {
+    "name": "Atlantic salmon, raw",
+    "description": "Fish, salmon, Atlantic, farmed, raw",
+    "calories": "208",
+    "fat": "13.42",
+    "protein": "20.42",
+    "carbs": "0",
+    "source_label": "USDA SR Legacy · FDC 175167",
+    "source_url": "https://fdc.nal.usda.gov/food-details/175167/nutrients",
+    "aliases": [
+      "salmon fillets",
+      "salmon",
+      "salmon fillet"
+    ],
+    "portion_notes": "Farmed Atlantic salmon, raw edible weight."
+  },
+  {
+    "name": "Honey",
+    "description": "Honey",
+    "protein": "0.3",
+    "fat": "0",
+    "carbs": "82.4",
+    "calories": "304",
+    "source_label": "USDA SR Legacy · FDC 169640",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169640/nutrients",
+    "aliases": [
+      "honey"
+    ],
+    "portion_notes": "USDA household cup: 339 g.",
+    "cup_grams": "339"
+  },
+  {
+    "name": "Soy sauce",
+    "description": "Soy sauce made from soy and wheat (shoyu)",
+    "fat": "0.57",
+    "carbs": "4.93",
+    "protein": "8.14",
+    "calories": "53",
+    "source_label": "USDA SR Legacy · FDC 174277",
+    "source_url": "https://fdc.nal.usda.gov/food-details/174277/nutrients",
+    "aliases": [
+      "soy sauce"
+    ],
+    "portion_notes": "Standard shoyu, made with soy and wheat.",
+    "cup_grams": "255"
+  },
+  {
+    "name": "Broccoli, raw",
+    "description": "Broccoli, raw",
+    "carbs": "6.64",
+    "calories": "34",
+    "fat": "0.37",
+    "protein": "2.82",
+    "source_label": "USDA SR Legacy · FDC 170379",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170379/nutrients",
+    "aliases": [
+      "broccoli"
+    ],
+    "portion_notes": "Cup assumes chopped broccoli.",
+    "cup_grams": "91"
+  },
+  {
+    "name": "White rice, dry",
+    "description": "Rice, white, long-grain, regular, raw, unenriched",
+    "protein": "7.13",
+    "fat": "0.66",
+    "carbs": "79.95",
+    "calories": "365",
+    "source_label": "USDA SR Legacy · FDC 169756",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169756/nutrients",
+    "aliases": [
+      "rice",
+      "white rice",
+      "dry rice",
+      "uncooked rice"
+    ],
+    "portion_notes": "Dry long-grain rice; cooking water is not counted.",
+    "cup_grams": "185"
+  },
+  {
+    "name": "White rice, cooked",
+    "description": "Rice, white, long-grain, regular, unenriched, cooked without salt",
+    "fat": "0.28",
+    "carbs": "28.17",
+    "calories": "130",
+    "protein": "2.69",
+    "source_label": "USDA SR Legacy · FDC 169757",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169757/nutrients",
+    "aliases": [
+      "cooked rice",
+      "cooked white rice"
+    ],
+    "portion_notes": "Cooked without salt. Kept separate from dry rice.",
+    "cup_grams": "158"
+  },
+  {
+    "name": "Brown rice, dry",
+    "description": "Rice, brown, long-grain, raw (Includes foods for USDA's Food Distribution Program)",
+    "fat": "3.2",
+    "carbs": "76.25",
+    "calories": "367",
+    "protein": "7.54",
+    "source_label": "USDA SR Legacy · FDC 169703",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169703/nutrients",
+    "aliases": [
+      "brown rice",
+      "dry brown rice"
+    ],
+    "portion_notes": "Dry long-grain brown rice.",
+    "cup_grams": "185"
+  },
+  {
+    "name": "Sourdough bread",
+    "description": "Bread, french or vienna (includes sourdough)",
+    "protein": "10.75",
+    "fat": "2.42",
+    "carbs": "51.88",
+    "calories": "272",
+    "source_label": "USDA SR Legacy · FDC 172675",
+    "source_url": "https://fdc.nal.usda.gov/food-details/172675/nutrients",
+    "aliases": [
+      "sourdough bread",
+      "sourdough"
+    ],
+    "portion_notes": "App estimate: 40 g per toast slice. USDA French/Vienna bread composition includes sourdough; weigh your slice or use its label.",
+    "slice_grams": "40"
+  },
+  {
+    "name": "Egg, whole, raw",
+    "description": "Egg, whole, raw, fresh",
+    "calories": "143",
+    "protein": "12.56",
+    "fat": "9.51",
+    "carbs": "0.72",
+    "source_label": "USDA SR Legacy · FDC 171287",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171287/nutrients",
+    "aliases": [
+      "eggs",
+      "egg",
+      "whole egg"
+    ],
+    "portion_notes": "1 large egg: 50 g edible contents, excluding the shell.",
+    "cup_grams": "243",
+    "item_grams": "50"
+  },
+  {
+    "name": "Red chili, dried",
+    "description": "Spices, pepper, red or cayenne",
+    "fat": "17.27",
+    "carbs": "56.63",
+    "calories": "318",
+    "protein": "12.01",
+    "source_label": "USDA SR Legacy · FDC 170932",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170932/nutrients",
+    "aliases": [
+      "chili flakes",
+      "chilli flakes",
+      "cayenne pepper"
+    ],
+    "portion_notes": "Cayenne composition and teaspoon weight are a proxy for chili flakes.",
+    "cup_grams": "86.4"
+  },
+  {
+    "name": "Plain wheat flour",
+    "description": "Wheat flour, white, all-purpose, enriched, bleached",
+    "protein": "10.33",
+    "fat": "0.98",
+    "carbs": "76.31",
+    "calories": "364",
+    "source_label": "USDA SR Legacy · FDC 168894",
+    "source_url": "https://fdc.nal.usda.gov/food-details/168894/nutrients",
+    "aliases": [
+      "plain flour",
+      "flour",
+      "all-purpose flour"
+    ],
+    "portion_notes": "All-purpose white flour, enriched. Cup assumes 125 g.",
+    "cup_grams": "125"
+  },
+  {
+    "name": "Baking powder",
+    "description": "Leavening agents, baking powder, double-acting, straight phosphate",
+    "fat": "0",
+    "carbs": "24.1",
+    "calories": "51",
+    "protein": "0.1",
+    "source_label": "USDA SR Legacy · FDC 172804",
+    "source_url": "https://fdc.nal.usda.gov/food-details/172804/nutrients",
+    "aliases": [
+      "baking powder"
+    ],
+    "portion_notes": "Double-acting baking powder; cup weight derived from a 4.6 g teaspoon.",
+    "cup_grams": "220.8"
+  },
+  {
+    "name": "White sugar",
+    "description": "Sugars, granulated",
+    "protein": "0",
+    "fat": "0",
+    "calories": "387",
+    "carbs": "99.98",
+    "source_label": "USDA SR Legacy · FDC 169655",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169655/nutrients",
+    "aliases": [
+      "sugar",
+      "white sugar",
+      "granulated sugar"
+    ],
+    "portion_notes": "Granulated sugar.",
+    "cup_grams": "200"
+  },
+  {
+    "name": "Whole milk",
+    "description": "Milk, whole, 3.25% milkfat, with added vitamin D",
+    "fat": "3.25",
+    "carbs": "4.8",
+    "calories": "61",
+    "protein": "3.15",
+    "source_label": "USDA SR Legacy · FDC 171265",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171265/nutrients",
+    "aliases": [
+      "milk",
+      "whole milk"
+    ],
+    "portion_notes": "3.25% milkfat. USDA household cup: 244 g.",
+    "cup_grams": "244"
+  },
+  {
+    "name": "Butter, unsalted",
+    "description": "Butter, without salt",
+    "calories": "717",
+    "fat": "81.11",
+    "carbs": "0.06",
+    "protein": "0.85",
+    "source_label": "USDA SR Legacy · FDC 173430",
+    "source_url": "https://fdc.nal.usda.gov/food-details/173430/nutrients",
+    "aliases": [
+      "butter",
+      "unsalted butter"
+    ],
+    "portion_notes": "USDA household cup: 227 g.",
+    "cup_grams": "227"
+  },
+  {
+    "name": "Blueberries, raw",
+    "description": "Blueberries, raw",
+    "carbs": "14.49",
+    "calories": "57",
+    "fat": "0.33",
+    "protein": "0.74",
+    "source_label": "USDA SR Legacy · FDC 171711",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171711/nutrients",
+    "aliases": [
+      "blueberries",
+      "blueberry"
+    ],
+    "portion_notes": "USDA household cup: 148 g.",
+    "cup_grams": "148"
+  },
+  {
+    "name": "Maple syrup",
+    "description": "Syrups, maple",
+    "protein": "0.04",
+    "fat": "0.06",
+    "carbs": "67.04",
+    "calories": "260",
+    "source_label": "USDA SR Legacy · FDC 169661",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169661/nutrients",
+    "aliases": [
+      "maple syrup"
+    ],
+    "portion_notes": "Pure maple syrup; household cup: 315 g.",
+    "cup_grams": "315"
+  },
+  {
+    "name": "Risotto rice, dry",
+    "description": "Rice, white, medium-grain, raw, unenriched",
+    "protein": "6.61",
+    "fat": "0.58",
+    "carbs": "79.34",
+    "calories": "360",
+    "source_label": "USDA SR Legacy · FDC 169760",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169760/nutrients",
+    "aliases": [
+      "arborio rice",
+      "risotto rice"
+    ],
+    "portion_notes": "Dry medium-grain white rice composition is used for arborio rice.",
+    "cup_grams": "195"
+  },
+  {
+    "name": "White mushrooms, raw",
+    "description": "Mushrooms, white, raw",
+    "fat": "0.34",
+    "protein": "3.09",
+    "carbs": "3.26",
+    "calories": "22",
+    "source_label": "USDA SR Legacy · FDC 169251",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169251/nutrients",
+    "aliases": [
+      "mushrooms",
+      "mushroom"
+    ],
+    "portion_notes": "1 medium mushroom: 18 g. Cup assumes pieces or slices.",
+    "slice_grams": "6",
+    "cup_grams": "70",
+    "item_grams": "18"
+  },
+  {
+    "name": "Onion, raw",
+    "description": "Onions, raw",
+    "fat": "0.1",
+    "carbs": "9.34",
+    "calories": "40",
+    "protein": "1.1",
+    "source_label": "USDA SR Legacy · FDC 170000",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170000/nutrients",
+    "aliases": [
+      "onion",
+      "onions",
+      "red onion"
+    ],
+    "portion_notes": "1 medium onion: 110 g. Generic raw onion composition also estimates red onion.",
+    "cup_grams": "160",
+    "item_grams": "110"
+  },
+  {
+    "name": "Vegetable stock, prepared",
+    "description": "Soup, vegetable broth, ready to serve",
+    "protein": "0.24",
+    "fat": "0.07",
+    "carbs": "0.93",
+    "calories": "5",
+    "source_label": "USDA SR Legacy · FDC 171583",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171583/nutrients",
+    "aliases": [
+      "vegetable stock",
+      "vegetable broth"
+    ],
+    "portion_notes": "Ready-to-serve broth. Concentrated stock cubes need their own entry.",
+    "cup_grams": "221"
+  },
+  {
+    "name": "Chickpeas, cooked",
+    "description": "Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt",
+    "carbs": "27.42",
+    "calories": "164",
+    "fat": "2.59",
+    "protein": "8.86",
+    "source_label": "USDA SR Legacy · FDC 173757",
+    "source_url": "https://fdc.nal.usda.gov/food-details/173757/nutrients",
+    "aliases": [
+      "cooked chickpeas",
+      "cooked chickpea"
+    ],
+    "portion_notes": "Boiled without salt; not dry chickpeas.",
+    "cup_grams": "164"
+  },
+  {
+    "name": "Coconut milk, canned",
+    "description": "Nuts, coconut milk, canned (liquid expressed from grated meat and water)",
+    "fat": "21.33",
+    "carbs": "2.81",
+    "calories": "197",
+    "protein": "2.02",
+    "source_label": "USDA SR Legacy · FDC 170173",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170173/nutrients",
+    "aliases": [
+      "coconut milk",
+      "canned coconut milk"
+    ],
+    "portion_notes": "Full-fat canned coconut milk, not a diluted coconut drink.",
+    "cup_grams": "226"
+  },
+  {
+    "name": "Tomatoes, canned",
+    "description": "Tomatoes, red, ripe, canned, packed in tomato juice",
+    "fat": "0.25",
+    "carbs": "3.47",
+    "calories": "16",
+    "protein": "0.79",
+    "source_label": "USDA SR Legacy · FDC 170051",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170051/nutrients",
+    "aliases": [
+      "chopped tomatoes",
+      "canned tomatoes",
+      "tinned tomatoes"
+    ],
+    "portion_notes": "Packed in tomato juice. Can sizes vary, so no default can weight is assumed.",
+    "cup_grams": "240"
+  },
+  {
+    "name": "Ginger, fresh",
+    "description": "Ginger root, raw",
+    "fat": "0.75",
+    "protein": "1.82",
+    "carbs": "17.77",
+    "calories": "80",
+    "source_label": "USDA SR Legacy · FDC 169231",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169231/nutrients",
+    "aliases": [
+      "fresh ginger",
+      "ginger"
+    ],
+    "portion_notes": "Cup weight derived from a 2 g teaspoon.",
+    "cup_grams": "96"
+  },
+  {
+    "name": "Curry powder",
+    "description": "Spices, curry powder",
+    "calories": "325",
+    "protein": "14.29",
+    "fat": "14.01",
+    "carbs": "55.83",
+    "source_label": "USDA SR Legacy · FDC 170924",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170924/nutrients",
+    "aliases": [
+      "curry powder"
+    ],
+    "portion_notes": "Cup weight derived from a 6.3 g tablespoon.",
+    "cup_grams": "100.8"
+  },
+  {
+    "name": "Banana, raw",
+    "description": "Bananas, raw",
+    "carbs": "22.84",
+    "calories": "89",
+    "protein": "1.09",
+    "fat": "0.33",
+    "source_label": "USDA SR Legacy · FDC 173944",
+    "source_url": "https://fdc.nal.usda.gov/food-details/173944/nutrients",
+    "aliases": [
+      "ripe bananas",
+      "bananas",
+      "banana"
+    ],
+    "portion_notes": "1 medium banana: 118 g edible flesh. Cup assumes mashed banana.",
+    "cup_grams": "225",
+    "item_grams": "118"
+  },
+  {
+    "name": "Brown sugar",
+    "description": "Sugars, brown",
+    "fat": "0",
+    "carbs": "98.09",
+    "calories": "380",
+    "protein": "0.12",
+    "source_label": "USDA SR Legacy · FDC 168833",
+    "source_url": "https://fdc.nal.usda.gov/food-details/168833/nutrients",
+    "aliases": [
+      "brown sugar"
+    ],
+    "portion_notes": "Cup assumes packed brown sugar.",
+    "cup_grams": "220"
+  },
+  {
+    "name": "Cinnamon, ground",
+    "description": "Spices, cinnamon, ground",
+    "protein": "3.99",
+    "fat": "1.24",
+    "carbs": "80.59",
+    "calories": "247",
+    "source_label": "USDA SR Legacy · FDC 171320",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171320/nutrients",
+    "aliases": [
+      "ground cinnamon",
+      "cinnamon"
+    ],
+    "portion_notes": "Cup weight derived from a 2.6 g teaspoon.",
+    "cup_grams": "124.8"
+  },
+  {
+    "name": "Vanilla extract",
+    "description": "Vanilla extract",
+    "fat": "0.06",
+    "carbs": "12.65",
+    "calories": "288",
+    "protein": "0.06",
+    "source_label": "USDA SR Legacy · FDC 173471",
+    "source_url": "https://fdc.nal.usda.gov/food-details/173471/nutrients",
+    "aliases": [
+      "vanilla extract"
+    ],
+    "portion_notes": "Contains alcohol; source calories need not equal a 4/4/9 macro calculation.",
+    "cup_grams": "208"
+  },
+  {
+    "name": "Small corn tortillas",
+    "description": "Tortillas, ready-to-bake or -fry, corn",
+    "protein": "5.7",
+    "fat": "2.85",
+    "carbs": "44.64",
+    "calories": "218",
+    "source_label": "USDA SR Legacy · FDC 175036",
+    "source_url": "https://fdc.nal.usda.gov/food-details/175036/nutrients",
+    "aliases": [
+      "small tortillas",
+      "corn tortillas",
+      "corn tortilla"
+    ],
+    "portion_notes": "1 USDA corn tortilla: 24 g. Flour tortillas need a different entry.",
+    "item_grams": "24"
+  },
+  {
+    "name": "Bell pepper, raw",
+    "description": "Peppers, sweet, red, raw",
+    "calories": "26",
+    "carbs": "6.03",
+    "protein": "0.99",
+    "fat": "0.3",
+    "source_label": "USDA SR Legacy · FDC 170108",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170108/nutrients",
+    "aliases": [
+      "bell peppers",
+      "bell pepper",
+      "red bell pepper"
+    ],
+    "portion_notes": "1 medium red pepper: 119 g; this is the default estimate for an unspecified bell pepper.",
+    "cup_grams": "149",
+    "item_grams": "119"
+  },
+  {
+    "name": "Courgette, raw",
+    "description": "Squash, summer, zucchini, includes skin, raw",
+    "fat": "0.32",
+    "carbs": "3.11",
+    "calories": "17",
+    "protein": "1.21",
+    "source_label": "USDA SR Legacy · FDC 169291",
+    "source_url": "https://fdc.nal.usda.gov/food-details/169291/nutrients",
+    "aliases": [
+      "courgette",
+      "zucchini"
+    ],
+    "portion_notes": "1 medium courgette: 196 g, with skin.",
+    "slice_grams": "9.9",
+    "cup_grams": "124",
+    "item_grams": "196"
+  },
+  {
+    "name": "Black beans, cooked",
+    "description": "Beans, black, mature seeds, cooked, boiled, without salt",
+    "fat": "0.54",
+    "carbs": "23.71",
+    "calories": "132",
+    "protein": "8.86",
+    "source_label": "USDA SR Legacy · FDC 173735",
+    "source_url": "https://fdc.nal.usda.gov/food-details/173735/nutrients",
+    "aliases": [
+      "cooked black beans",
+      "cooked black bean"
+    ],
+    "portion_notes": "Boiled without salt; not dry black beans.",
+    "cup_grams": "172"
+  },
+  {
+    "name": "Lime, raw",
+    "description": "Limes, raw",
+    "fat": "0.2",
+    "carbs": "10.54",
+    "protein": "0.7",
+    "calories": "30",
+    "source_label": "USDA SR Legacy · FDC 168155",
+    "source_url": "https://fdc.nal.usda.gov/food-details/168155/nutrients",
+    "aliases": [
+      "lime",
+      "limes"
+    ],
+    "portion_notes": "1 lime: 67 g edible fruit. The estimate counts the flesh even if only juice is used.",
+    "item_grams": "67"
+  },
+  {
+    "name": "Paprika",
+    "description": "Spices, paprika",
+    "protein": "14.14",
+    "fat": "12.89",
+    "carbs": "53.99",
+    "calories": "282",
+    "source_label": "USDA SR Legacy · FDC 171329",
+    "source_url": "https://fdc.nal.usda.gov/food-details/171329/nutrients",
+    "aliases": [
+      "smoked paprika",
+      "paprika"
+    ],
+    "portion_notes": "Ground paprika composition also estimates smoked paprika.",
+    "cup_grams": "110.4"
+  },
+  {
+    "name": "Cumin, ground",
+    "description": "Spices, cumin seed",
+    "protein": "17.81",
+    "fat": "22.27",
+    "carbs": "44.24",
+    "calories": "375",
+    "source_label": "USDA SR Legacy · FDC 170923",
+    "source_url": "https://fdc.nal.usda.gov/food-details/170923/nutrients",
+    "aliases": [
+      "ground cumin",
+      "cumin"
+    ],
+    "portion_notes": "Cumin seed composition and household weight estimate ground cumin.",
+    "cup_grams": "100.8"
+  },
+  {
+    "name": "Semisweet chocolate",
+    "description": "Candies, semisweet chocolate",
+    "carbs": "63.9",
+    "calories": "480",
+    "protein": "4.2",
+    "fat": "30",
+    "source_label": "USDA SR Legacy · FDC 167976",
+    "source_url": "https://fdc.nal.usda.gov/food-details/167976/nutrients",
+    "aliases": [
+      "chocolate chips",
+      "semisweet chocolate"
+    ],
+    "portion_notes": "Generic semisweet chocolate estimates baking chips; use a label entry for a specific brand."
+  }
+]

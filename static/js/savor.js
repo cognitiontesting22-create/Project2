@@ -91,6 +91,7 @@
     const input = $('#serving-count');
     const status = $('#serving-status');
     let currentServings = Number(servingForm.dataset.currentServings);
+    let nutritionBasis = $('.nutrition-panel')?.dataset.basis || 'serving';
     let controller;
     let timer;
     const scaleRecipe = async () => {
@@ -110,7 +111,7 @@
       // Keep the planner from using an amount while ingredients are updating.
       const planButton = $('.detail-plan-button'); planButton.disabled = true;
       try {
-        const response = await fetch(`${servingForm.dataset.scaleUrl}?servings=${value}`, {signal: request.signal});
+        const response = await fetch(`${servingForm.dataset.scaleUrl}?servings=${value}&nutrition_basis=${nutritionBasis}`, {signal: request.signal});
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Your ingredients couldn’t be updated. Please try again.');
         if (controller !== request) return;
@@ -127,7 +128,13 @@
         if (cookLink) { const link = new URL(cookLink.href); link.searchParams.set('servings', currentServings); cookLink.href = link; }
         const pantryStatus = $('#recipe-pantry-status');
         if (pantryStatus && result.pantry) pantryStatus.textContent = `${result.pantry.covered_count} of ${result.pantry.total_count} ingredients covered by your pantry${result.pantry.ready ? ' · ready to cook' : ''}`;
-        const url = new URL(location.href); url.searchParams.set('servings', currentServings); history.replaceState(null, '', url);
+        const nutritionPanel = $('#recipe-nutrition');
+        if (nutritionPanel && result.nutrition_html) {
+          const expanded = $('.nutrition-breakdown', nutritionPanel)?.open;
+          nutritionPanel.innerHTML = result.nutrition_html;
+          $('.nutrition-breakdown', nutritionPanel).open = expanded;
+        }
+        const url = new URL(location.href); url.searchParams.set('servings', currentServings); url.searchParams.set('nutrition_basis', nutritionBasis); history.replaceState(null, '', url);
         status.textContent = `Ingredients adjusted for ${currentServings} serving${currentServings === 1 ? '' : 's'}.`;
       } catch (error) {
         if (error.name !== 'AbortError') {
@@ -141,6 +148,11 @@
     input.addEventListener('input', () => { clearTimeout(timer); controller?.abort(); timer = setTimeout(scaleRecipe, 200); });
     input.addEventListener('change', scaleRecipe);
     servingForm.addEventListener('submit', event => { event.preventDefault(); scaleRecipe(); });
+    document.addEventListener('click', event => {
+      const toggle = event.target.closest('[data-nutrition-basis]');
+      if (!toggle) return;
+      event.preventDefault(); nutritionBasis = toggle.dataset.nutritionBasis; scaleRecipe();
+    });
     $$('[data-serving-change]').forEach(button => button.addEventListener('click', () => {
       input.value = Math.max(1, Math.min(2147483647, (Number(input.value) || currentServings) + Number(button.dataset.servingChange)));
       scaleRecipe();
