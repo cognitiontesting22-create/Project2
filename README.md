@@ -78,6 +78,14 @@ Amounts are never invented. Ranges, approximate measures, and unquantified lines
 
 Missing servings start at **2**, missing prep/cook times at **0**, and the draft uses your kitchen’s measuring standard; the review explicitly asks you to check these. Missing title, method, or ingredients remain editable fields. Limits are 30,000 characters, 500 lines, and 100 ingredients per recipe. Larger input is rejected without truncation. This is a conservative text importer, so unusual layouts or prose recipes can require manual edits.
 
+### Personal and household nutrition
+
+In Settings, choose **Just me** or **Household**, add names and optional daily calorie/protein/carbohydrate/fat goals, and save. Save again to add more people. Just me uses the first person; switching modes preserves all profiles and portions. Profiles belong to the shared kitchen and are not separate login accounts.
+
+Select a person in the planner and assign their portions to each meal (decimals such as `1.5` are supported; `0` means they won't eat it). Household cooking servings still drive shopping and pantry use. Combined personal portions cannot exceed the cooking quantity. Changing a meal's recipe or cooking quantity clears its personal portions for reassignment.
+
+Daily cards show nutrition from assigned planned breakfast, lunch, and dinner portions, with neutral differences against goals. Snacks, drinks and leftover scheduling are not included. Missing recipe nutrition or unassigned portions marks totals incomplete and suppresses target differences. Cooking does not record eating. Goals are user-entered; the app does not prescribe targets or define success ranges.
+
 ### Nutrition estimates
 
 The local SQLite nutrition table is initialized automatically by migrations, with 57 reviewed entries extracted from [USDA FoodData Central SR Legacy](https://fdc.nal.usda.gov/download-datasets/). Each entry retains its original source description, FDC identifier, source link, calories, protein, carbohydrate, and fat per 100 g. The frozen source selection and rebuild tool are included in `tools/build_nutrition_seed.py`; the app needs no API key or network connection for calculations. Calories come from the source energy value, rather than being inferred from protein/carbs/fat.

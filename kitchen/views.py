@@ -15,7 +15,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from .forms import IngredientFormSet, MealPlanForm, RecipeForm, SettingsForm, PantryForm, CookForm, NutritionFoodForm, RecipePasteForm
 from .models import KitchenSettings, MealPlan, Recipe, ShoppingCheck, PantryItem, CookingRecord, Ingredient, NutritionFood, NutritionAlias
-from .nutrition import recipe_nutrition
+from .forms import NutritionProfileFormSet, PersonalPortionForm
+from .models import NutritionProfile, PersonalPortion
+from .nutrition import recipe_nutrition, NUTRIENTS, estimate_text
 from .recipe_import import parse_recipe
 from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, quantity_display, shopping_display, parse_quantity, format_quantity
 from .inventory import pantry_balances, recipe_match, add_stock, lock_kitchen, record_cooking, undo_cooking, deduction_display, _add_stock
@@ -207,11 +209,52 @@ def planner(request):
     for plan in plans:
         plan.cooked_record = cooked.get(plan.pk)
     slots = {(p.date, p.meal): p for p in plans}
+    settings, _ = KitchenSettings.objects.get_or_create(pk=1)
+    profiles = NutritionProfile.objects.all()
+    if settings.nutrition_mode == "personal":
+        profiles = profiles[:1]
+    profiles = list(profiles)
+    selected = next((p for p in profiles if str(p.pk) == request.GET.get("person")), profiles[0] if profiles else None)
+    allocations = {p.plan_id: p.servings for p in PersonalPortion.objects.filter(profile=selected, plan__in=plans)} if selected else {}
     days = []
     for offset in range(7):
         day = context["week"] + timedelta(days=offset)
         days.append({"date": day, "meals": [{"name": meal, "plan": slots.get((day, meal))} for meal, _ in MealPlan.MEAL_CHOICES]})
-    context.update({"days": days, "all_recipes": Recipe.objects.all(), "planned_count": plans.count(), "cooked_count": len(cooked), "page": "planner", "page_title": "Meal planner"})
+    for day in days:
+        totals = {key: Fraction(0) for key, _, _ in NUTRIENTS}
+        complete, available, unassigned = True, False, 0
+        assigned = False
+        for meal in day["meals"]:
+            plan = meal["plan"]
+            if not plan:
+                continue
+            portion = allocations.get(plan.pk)
+            meal["personal_portion"] = portion
+            if portion is None:
+                unassigned += 1
+                complete = False
+                continue
+            assigned = True
+            if portion == 0:
+                continue
+            nutrition = recipe_nutrition(plan.recipe, plan.servings)
+            complete = complete and nutrition["complete"]
+            available = available or nutrition["available"]
+            for key in totals:
+                if nutrition["per_serving"][key] is not None:
+                    totals[key] += Fraction(nutrition["per_serving"][key]) * Fraction(portion)
+        day["nutrition_incomplete"] = not complete
+        day["unassigned"] = unassigned
+        day["nutrition_cards"] = []
+        for key, label, unit in NUTRIENTS:
+            goal = getattr(selected, key) if selected else None
+            difference = Fraction(goal) - totals[key] if goal else None
+            day["nutrition_cards"].append({"label": label, "unit": unit,
+                "total": estimate_text(totals[key], 0 if key == "calories" else 1) if available or (assigned and complete) else "—",
+                "goal": goal,
+                "difference": estimate_text(abs(difference), 0 if key == "calories" else 1) if difference is not None and complete and (available or assigned) else None,
+                "over": difference is not None and difference < 0})
+    context.update({"nutrition_profiles": profiles, "selected_person": selected, "days": days, "all_recipes": Recipe.objects.all(), "planned_count": plans.count(), "cooked_count": len(cooked), "page": "planner", "page_title": "Meal planner"})
     return render(request, "kitchen/planner.html", context)
 
 @require_POST
@@ -225,6 +268,9 @@ def plan_add(request):
             if previous and CookingRecord.objects.filter(plan=previous, undone_at__isnull=True).exists():
                 messages.error(request, "This meal is already cooked. Undo its cooking record before changing the plan.")
             else:
+                if previous and (previous.recipe_id != data["recipe"].pk or previous.servings != data["servings"]):
+                    previous.personal_portions.all().delete()
+                    messages.info(request, "Cooking plan changed. Assign personal portions again for this meal.")
                 MealPlan.objects.update_or_create(date=data["date"], meal=data["meal"], defaults={"recipe": data["recipe"], "servings": data["servings"]})
                 messages.success(request, f'{data["recipe"].title} added to {data["date"]:%A} {data["meal"].lower()}.')
         start = week_start(data["date"].isoformat())
@@ -317,7 +363,7 @@ def settings_view(request):
         form.save()
         messages.success(request, "Your kitchen, your way. Settings saved.")
         return redirect("settings")
-    return render(request, "kitchen/settings.html", {"form": form, "page": "settings", "page_title": "Kitchen settings"})
+    return render(request, "kitchen/settings.html", {"nutrition_profiles_formset": NutritionProfileFormSet(queryset=NutritionProfile.objects.all(), prefix="people"), "nutrition_mode": profile.nutrition_mode, "form": form, "page": "settings", "page_title": "Kitchen settings"})
 
 def pantry_context(request, form=None):
     profile, _ = KitchenSettings.objects.get_or_create(pk=1)
@@ -453,3 +499,38 @@ def shopping_stock(request):
         ShoppingCheck.objects.filter(week=start, key__in=[item["key"] for item in checked]).update(checked=False)
     messages.success(request, f"{len(checked)} checked ingredient{'s' if len(checked) != 1 else ''} added to your pantry." if checked else "No checked shortages to add. Your pantry is already up to date.")
     return redirect(reverse("shopping") + "?" + urlencode({"week": start.isoformat()}))
+
+
+@require_POST
+def nutrition_profiles_save(request):
+    settings, _ = KitchenSettings.objects.get_or_create(pk=1)
+    formset = NutritionProfileFormSet(request.POST, queryset=NutritionProfile.objects.all(), prefix="people")
+    mode = request.POST.get("nutrition_mode")
+    if mode in {"personal", "household"} and formset.is_valid():
+        with transaction.atomic():
+            formset.save()
+            settings.nutrition_mode = mode
+            settings.save(update_fields=["nutrition_mode"])
+        messages.success(request, "Nutrition goals saved. Switching modes keeps everyone's goals and portions.")
+        return redirect("settings")
+    return render(request, "kitchen/settings.html", {"form": SettingsForm(instance=settings), "nutrition_profiles_formset": formset, "nutrition_mode": mode, "page": "settings", "page_title": "Kitchen settings"}, status=400)
+
+
+@require_POST
+def personal_portion_save(request, pk, person):
+    profile = get_object_or_404(NutritionProfile, pk=person)
+    plan = get_object_or_404(MealPlan, pk=pk)
+    form = PersonalPortionForm(request.POST)
+    if form.is_valid():
+        with transaction.atomic():
+            lock_kitchen()
+            plan = MealPlan.objects.select_for_update().get(pk=pk)
+            allocated = sum(p.servings for p in plan.personal_portions.exclude(profile=profile))
+            if allocated + form.cleaned_data["servings"] > plan.servings:
+                messages.error(request, "Personal portions exceed the cooking quantity. Increase the planned servings or reduce another person's portions first.")
+            else:
+                PersonalPortion.objects.update_or_create(profile=profile, plan=plan, defaults=form.cleaned_data)
+                messages.success(request, "Personal portion saved.")
+    else:
+        messages.error(request, "Use a portion from 0 to 1000 with at most two decimal places.")
+    return redirect(reverse("planner") + "?" + urlencode({"week": week_start(plan.date.isoformat()), "person": person}))

@@ -87,6 +87,7 @@ class ShoppingCheck(models.Model):
         constraints = [models.UniqueConstraint(fields=["week", "key"], name="one_check_per_week_item")]
 
 class KitchenSettings(models.Model):
+    nutrition_mode = models.CharField(max_length=10, choices=[("personal", "Just me"), ("household", "Household")], default="personal")
     name = models.CharField(max_length=50, default="Alex")
     kitchen_name = models.CharField(max_length=60, default="My little kitchen")
     measurement_system = models.CharField(max_length=10, choices=MEASUREMENT_SYSTEMS, default="us")
@@ -177,3 +178,26 @@ class NutritionAlias(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class NutritionProfile(models.Model):
+    name = models.CharField(max_length=50)
+    calories = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    protein = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    carbs = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    fat = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+
+    class Meta:
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.name
+
+
+class PersonalPortion(models.Model):
+    profile = models.ForeignKey(NutritionProfile, on_delete=models.CASCADE, related_name="portions")
+    plan = models.ForeignKey(MealPlan, on_delete=models.CASCADE, related_name="personal_portions")
+    servings = models.DecimalField(max_digits=6, decimal_places=2, validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1000"))])
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["profile", "plan"], name="one_personal_portion_per_meal")]

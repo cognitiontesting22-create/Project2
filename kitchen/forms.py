@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Ingredient, KitchenSettings, MealPlan, Recipe, PantryItem, NutritionFood, NutritionAlias
+from .models import Ingredient, KitchenSettings, MealPlan, Recipe, PantryItem, NutritionFood, NutritionAlias, NutritionProfile
 from django.utils import timezone
 from .measurements import MAX_SERVINGS, parse_quantity, format_quantity, normalize_name
 from .recipe_import import MAX_TEXT_LENGTH
@@ -164,3 +164,16 @@ class NutritionFoodForm(forms.ModelForm):
         if commit:
             self.save_aliases()
         return food
+
+
+
+class NutritionProfileForm(forms.ModelForm):
+    class Meta:
+        model = NutritionProfile
+        fields = ["name", "calories", "protein", "carbs", "fat"]
+        labels = {"calories": "Daily calories (kcal)", "protein": "Daily protein (g)", "carbs": "Daily carbs (g)", "fat": "Daily fat (g)"}
+
+NutritionProfileFormSet = forms.modelformset_factory(NutritionProfile, form=NutritionProfileForm, extra=1, max_num=20, validate_max=True)
+
+class PersonalPortionForm(forms.Form):
+    servings = forms.DecimalField(min_value=0, max_value=1000, max_digits=6, decimal_places=2)
