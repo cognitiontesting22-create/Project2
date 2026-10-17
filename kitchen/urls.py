@@ -2,6 +2,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("settings/nutrition/", views.nutrition_profiles_save, name="nutrition_profiles_save"),
+    path("planner/<int:pk>/portion/<int:person>/", views.personal_portion_save, name="personal_portion_save"),
     path("", views.recipe_box, name="recipe_box"),
     path("favorites/", views.recipe_box, {"favorites": True}, name="favorites"),
     path("recipes/new/", views.recipe_edit, name="recipe_create"),
