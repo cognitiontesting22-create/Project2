@@ -1,6 +1,6 @@
 # Leftovers: cook once, plan the portions
 
-This document proposes the full leftovers workflow. The implementation decisions for each stage come from the feature session; the remaining proposal is not a specification for unfinished stages.
+Leftover planning, prepared portions, reservations, eating and undo, nutrition snapshots, and the prepared food shelf with freeze/unfreeze are implemented. The decisions below come from the feature session. Combining leftovers with freshly cooked portions and scheduling portions from a batch cooked without a planner source remain out of scope; later ideas are not part of this PR.
 
 ## Implemented first stage
 
@@ -10,7 +10,7 @@ Saving a cooking plan fills only the next calendar day's empty slot for the same
 
 For a household of 2, Monday dinner with 4 servings and blank portions eaten becomes Monday eating 2 and Tuesday's **Expected leftovers** for 2. Six servings also fill Tuesday only; 2 servings create no follow-on meal. Expected leftovers link to the source card, cannot be recorded as cooking batches, and can be removed or replaced with a fresh plan. Changing an uncooked source reconciles its expected follow-on meal; removing the source removes that expected meal.
 
-This stage adds planner scheduling only. Prepared stock, consumption receipts, and changes to pantry or shopping accounting remain future work.
+This first stage introduced planner scheduling; the later implemented stages below add prepared stock, consumption receipts, and shopping accounting.
 
 ## Implemented second stage
 
@@ -52,9 +52,15 @@ Cooking cuts existing allocations to fit the actual remainder, taking from the l
 
 The prepared batch keeps the source's pre-cooking servings and portions eaten. Cooking undo restores those quantities and full expected reservations. If extra actual yield was explicitly reserved after cooking, the pending source quantity is kept large enough to cover all those reservations too. Existing batches have no historical planned quantities, so undo uses their current plan as the starting point. All allocation, aggregate reservation, and remaining-portion mutations share the kitchen lock and transaction; receipts remain the only authority for restoring raw stock.
 
-## Remaining proposal
+## Implemented sixth stage
 
-The agreed policy is to fill **empty matching meal slots only**, leaving existing plans intact. Household portions should be configurable, with a suggested starting default of **2** until the household size is supplied.
+The **Prepared food** shelf beside the pantry lists every active batch with remaining portions, including batches cooked directly from a recipe. **Use these first** orders rows by earliest use-by date, fridge before freezer, then earlier cooking date/time. Rows show the batch title, remaining versus yield, reserved versus unassigned, storage, explicit date, and frozen nutrition estimate. A patched `timezone.localdate()` controls the **Past use by** label; a past date never hides a row or blocks storage changes or eating.
+
+**Freeze** and **Unfreeze** are POST-only, CSRF-protected actions requiring a new explicit `use_by` date. They change only location and date under the kitchen lock. Missing/unreadable dates and already-in-that-location requests change nothing. Existing leftover meals stay put after a storage change; their cards show **After use by** whenever the meal date exceeds the batch's new date. The shelf does not invent a shelf life or schedule unplanned batches.
+
+## Design background and future ideas
+
+The implemented policy fills **empty matching meal slots only**, leaving existing plans intact. Household portions are configurable and default to **2**.
 
 ## Expected behavior
 
@@ -76,10 +82,10 @@ Before cooking, the follow-on meal is marked **Expected leftovers**. Recording t
 - If only 1 extra portion remains for a 2-person household, show **1 portion available** and leave tomorrow's full meal unfilled. A later enhancement could combine leftover and freshly cooked portions, charging shopping only for the fresh portion.
 - If tomorrow is occupied, retain unassigned portions and offer a choice of another empty slot. Do not replace the meal or quietly skip several days into the future.
 - If the original batch changes before cooking, reconcile its dependent reservations and show which ones no longer have enough portions. If cooking produces fewer portions than planned, report the shortfall instead of displaying a covered meal.
-- Use the prepared batch's use-by date and fridge/freezer state when suggesting meals. Do not invent one universal shelf life. A frozen batch can offer an explicit thaw/reheat plan.
+- The prepared shelf uses explicit use-by dates and fridge/freezer state. Further meal suggestions or a thaw/reheat plan could use the same data; no universal shelf life is inferred.
 - Removing an uncooked source plan should remove its expected follow-on reservations. Once portions have been eaten, undo the later consumption records before undoing the source cooking record, preserving ingredient and portion accounting.
 - Make cooking and leftover-consumption actions safe to retry, with receipts and undo like the existing pantry flow.
 
 ## Useful later additions
 
-Offer “use these first” suggestions, a prepared-food shelf beside the raw pantry, lunch-sized portions, a freeze/unfreeze action, and a weekly view of cooking effort saved. Each should use the same batch accounting rather than generating extra copies of the recipe's ingredient list.
+Further ideas include combining leftover and freshly cooked portions, scheduling directly cooked batches without a planner source, lunch-sized portions, and a weekly view of cooking effort saved. Each should use the same batch accounting rather than generating extra copies of the recipe's ingredient list.

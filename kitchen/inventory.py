@@ -285,6 +285,17 @@ def source_meal_label(source):
 
 
 @transaction.atomic
+def move_prepared_batch(batch, location, use_by):
+    lock_kitchen()
+    batch.refresh_from_db()
+    if batch.storage_location == location:
+        raise ValueError(f"This batch is already in the {location}.")
+    batch.storage_location = location
+    batch.use_by = use_by
+    batch.save(update_fields=["storage_location", "use_by"])
+
+
+@transaction.atomic
 def eat_leftovers(plan, action_token):
     lock_kitchen()
     plan.refresh_from_db()

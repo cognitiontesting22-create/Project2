@@ -297,6 +297,47 @@ def exercise_edge_cases(base, recipe_id):
             browser.close()
 
 
+def exercise_prepared_shelf(base):
+    errors = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(channel="chrome", headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1100})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(base + "/pantry/")
+            page.locator(".prepared-pantry-link").click()
+            expect(page.get_by_role("heading", name="Use these first.", exact=True)).to_be_visible()
+            row = page.locator(".prepared-row").filter(has_text="Snapshot rice dinner")
+            expect(row).to_contain_text("2 of 4 portions left")
+            expect(row).to_contain_text("2 reserved · 0 unassigned")
+            expect(row).to_contain_text("130 kcal per portion")
+            expect(row.get_by_label("New use by", exact=True)).to_be_empty()
+            row.get_by_label("New use by", exact=True).fill("2026-12-03")
+            row.get_by_role("button", name="Freeze", exact=True).click()
+            expect(page.locator(".messages")).to_contain_text("Moved to the freezer. Use by 3 Dec 2026.")
+            expect(row).to_contain_text("Freezer · Use by 3 Dec 2026")
+            expect(row.get_by_role("button", name="Freeze", exact=True)).to_have_count(0)
+            row.get_by_label("New use by", exact=True).fill("2026-11-06")
+            row.get_by_role("button", name="Unfreeze", exact=True).click()
+            expect(page.locator(".messages")).to_contain_text("Moved to the fridge. Use by 6 Nov 2026.")
+            expect(row).to_contain_text("Fridge · Use by 6 Nov 2026")
+            page.screenshot(path=str(ARTIFACTS / "prepared-shelf-desktop.png"), full_page=True)
+            page.goto(base + "/planner/?week=2026-11-16")
+            expect(page.get_by_text("After use by", exact=True)).to_be_visible()
+            page.goto(base + "/prepared/")
+            row.get_by_label("New use by", exact=True).fill("2026-11-01")
+            row.get_by_role("button", name="Freeze", exact=True).click()
+            expect(row).to_contain_text("Past use by")
+            expect(row).to_contain_text("2 reserved · 0 unassigned")
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.reload()
+            expect(row.get_by_role("button", name="Unfreeze", exact=True)).to_be_visible()
+            page.screenshot(path=str(ARTIFACTS / "prepared-shelf-mobile.png"), full_page=True)
+            assert not errors, errors
+        finally:
+            browser.close()
+
+
 def run():
     ARTIFACTS.mkdir(exist_ok=True)
     with TemporaryDirectory(prefix="leftovers-check-") as folder:
@@ -350,11 +391,12 @@ with patch('django.utils.timezone.localdate', return_value=date(2026, 11, 2)):
                 NutritionProfile.objects.create(name="Alex", calories=2000, protein=100)
                 exercise_shopping_nutrition(base, rice.pk, rice_food.pk)
                 exercise_edge_cases(base, rice.pk)
+                exercise_prepared_shelf(base)
             finally:
                 server.terminate()
                 server.wait(timeout=10)
                 connections.close_all()
-    print("PASS: household Settings, 4/6/2-serving plans, exact cards, retries, removal, replacement, prepared batches, eating and undo, rice shopping/export, frozen nutrition and personal totals, spare portions, occupied slots, explicit scheduling, source shrink/growth, partial cooking and eating, restored reservations, and desktop/mobile UI; temporary database removed.")
+    print("PASS: household Settings, 4/6/2-serving plans, exact cards, retries, removal, replacement, prepared batches, eating and undo, rice shopping/export, frozen nutrition and personal totals, spare portions, occupied slots, explicit scheduling, source shrink/growth, partial cooking and eating, restored reservations, prepared shelf, freeze/unfreeze, use-by conflicts, and desktop/mobile UI; temporary database removed.")
 
 
 if __name__ == "__main__":

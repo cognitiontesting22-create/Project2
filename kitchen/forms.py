@@ -128,6 +128,11 @@ class LeftoverScheduleForm(forms.Form):
     meal = forms.ChoiceField(choices=MealPlan.MEAL_CHOICES)
 
 
+class PreparedStorageForm(forms.Form):
+    use_by = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}),
+        error_messages={"required": "Choose a new use by date.", "invalid": "Choose a new use by date."})
+
+
 class LeftoverEatForm(forms.Form):
     action_token = forms.UUIDField(widget=forms.HiddenInput)
 

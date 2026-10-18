@@ -23,6 +23,7 @@
     <a class="nav-link {% if page == 'shopping' %}active{% endif %}" href="{% url 'shopping' %}" {% if page == 'shopping' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='bag' %}<span>Shopping list</span></a>
     <a class="nav-link {% if page == 'favorites' %}active{% endif %}" href="{% url 'favorites' %}" {% if page == 'favorites' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='heart' %}<span>Favorites</span><span class="nav-count" data-favorite-count>{{ favorite_count }}</span></a>
     <a class="nav-link {% if page == 'pantry' %}active{% endif %}" href="{% url 'pantry' %}" {% if page == 'pantry' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='leaf' %}<span>My pantry</span><span class="nav-count">{{ pantry_count }}</span></a>
+    <a class="nav-link {% if page == 'prepared' %}active{% endif %}" href="{% url 'prepared_shelf' %}" {% if page == 'prepared' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='chef' %}<span>Prepared food</span></a>
     <a class="nav-link {% if page == 'discover' %}active{% endif %}" href="{% url 'discover' %}" {% if page == 'discover' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='spark' %}<span>Cook with my pantry</span></a>
     <a class="nav-link {% if page == 'history' %}active{% endif %}" href="{% url 'cooking_history' %}" {% if page == 'history' %}aria-current="page"{% endif %}>{% include 'kitchen/icon.html' with name='chef' %}<span>Cooking history</span></a>
   </nav>

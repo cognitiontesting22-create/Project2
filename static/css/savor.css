@@ -73,3 +73,13 @@
 .leftover-eat-form .text-button{font-size:10px;color:var(--green)}
 .leftover-history-card{grid-template-columns:1fr}
 .leftover-history-card h2{font-size:23px;margin:8px 0 18px}
+.prepared-pantry-link{margin-bottom:18px}
+.prepared-shelf{display:grid;gap:16px;max-width:1000px;margin-bottom:36px}
+.prepared-row{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px;border:1px solid var(--line);border-radius:9px;background:#fffefb}
+.prepared-info h2{font-size:25px;margin-bottom:10px;overflow-wrap:anywhere}
+.prepared-info p{font-size:12px;color:var(--muted);margin:6px 0}
+.prepared-past-date,.planned-meal>.leftover-conflict{color:var(--rust)}
+.prepared-storage-form{width:175px;flex-shrink:0}
+.prepared-storage-form .field{font-size:11px;margin-bottom:12px}
+.prepared-storage-form .button{width:100%}
+@media(max-width:600px){.prepared-row{align-items:stretch;flex-direction:column;gap:16px;padding:20px}.prepared-storage-form{width:100%}}

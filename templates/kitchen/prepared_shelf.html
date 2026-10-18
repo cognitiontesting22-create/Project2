@@ -1,0 +1,26 @@
+{% extends 'kitchen/base.html' %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow heading-eyebrow">PREPARED FOOD</div><h1>Use these first.</h1><p>A little cooking today. A good meal ready for tomorrow.</p></div><a class="button button-outline" href="{% url 'pantry' %}">{% include 'kitchen/icon.html' with name='bag' %}My pantry</a></div>
+{% if batches %}
+<div class="prepared-shelf">
+  {% for batch in batches %}
+  <article class="prepared-row" id="batch-{{ batch.pk }}">
+    <div class="prepared-info">
+      <h2>{{ batch.recipe_title }}</h2>
+      <p>{{ batch.remaining_portions }} of {{ batch.yield_portions }} portions left</p>
+      <p>{{ batch.reserved_portions }} reserved · {{ batch.unassigned_portions }} unassigned</p>
+      <p>{{ batch.get_storage_location_display }} · Use by {{ batch.use_by|date:'j M Y' }}{% if batch.past_use_by %} · <strong class="prepared-past-date">Past use by</strong>{% endif %}</p>
+      <p>{{ batch.calories_per_portion }} kcal per portion{% if not batch.nutrition_snapshot.complete %} · Partial estimate{% endif %}</p>
+    </div>
+    <form action="{% if batch.storage_location == 'fridge' %}{% url 'prepared_freeze' batch.pk %}{% else %}{% url 'prepared_unfreeze' batch.pk %}{% endif %}" method="post" class="prepared-storage-form">
+      {% csrf_token %}
+      <label class="field" for="use-by-{{ batch.pk }}">New use by<input type="date" id="use-by-{{ batch.pk }}" name="use_by" required></label>
+      <button type="submit" class="button button-outline">{% if batch.storage_location == 'fridge' %}Freeze{% else %}Unfreeze{% endif %}</button>
+    </form>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">{% include 'kitchen/icon.html' with name='chef' %}<h2>No prepared food yet.</h2><p>Cook a batch bigger than tonight's meal and the rest shows up here.</p></div>
+{% endif %}
+{% endblock %}

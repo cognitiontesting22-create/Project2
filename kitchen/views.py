@@ -5,17 +5,18 @@ from fractions import Fraction
 from urllib.parse import urlencode
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import F, Q, Exists, OuterRef
+from django.db.models import F, Q, Exists, OuterRef, Case, When, IntegerField
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.formats import date_format
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from .forms import IngredientFormSet, MealPlanForm, RecipeForm, SettingsForm, PantryForm, CookForm, NutritionFoodForm, RecipePasteForm
 from .models import KitchenSettings, MealPlan, Recipe, ShoppingCheck, PantryItem, CookingRecord, Ingredient, NutritionFood, NutritionAlias
-from .forms import NutritionProfileFormSet, PersonalPortionForm, LeftoverEatForm, LeftoverScheduleForm
+from .forms import NutritionProfileFormSet, PersonalPortionForm, LeftoverEatForm, LeftoverScheduleForm, PreparedStorageForm
 from .models import NutritionProfile, PersonalPortion, PreparedBatch, LeftoverMeal
 from .nutrition import recipe_nutrition, NUTRIENTS, estimate_text
 from .recipe_import import parse_recipe
@@ -23,6 +24,7 @@ from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, quantity_d
 from .inventory import pantry_balances, recipe_match, add_stock, lock_kitchen, record_cooking, undo_cooking, deduction_display, _add_stock
 from .inventory import change_reservation, release_leftover_reservation, eat_leftovers, undo_leftovers, source_meal_label
 from .inventory import reconcile_leftovers, ordered_leftovers, meal_slot_label, portions_text, removed_leftovers_text, schedule_leftovers
+from .inventory import move_prepared_batch
 
 EATEN_PLAN_PROTECTION = "These leftovers are already eaten. Undo that record before changing the plan."
 
@@ -231,6 +233,7 @@ def planner(request):
             plan.source_week = week_start(plan.leftover_of.date.isoformat())
             source_batch = batches.get(plan.leftover_of_id)
             plan.leftovers_ready = source_batch is not None
+            plan.after_use_by = bool(source_batch and source_batch.use_by and plan.date > source_batch.use_by)
             plan.leftover_nutrition = source_batch.nutrition_snapshot if source_batch else recipe_nutrition(plan.recipe, plan.servings)
             plan.leftover_calories = estimate_text(plan.leftover_nutrition["per_serving"]["calories"], 0)
             plan.leftovers_eaten = plan.pk in eaten
@@ -411,6 +414,45 @@ def leftover_undo(request, pk):
     messages.success(request, f"Leftovers restored. {portions_text(record.portions)} {'is' if record.portions == 1 else 'are'} back." if changed else
         "This was already undone. Portions haven't been added twice.")
     return redirect("cooking_history")
+
+
+def prepared_shelf(request):
+    today = timezone.localdate()
+    batches = PreparedBatch.objects.filter(remaining_portions__gt=0, cooking_record__undone_at__isnull=True).select_related("cooking_record").order_by(
+        "use_by", Case(When(storage_location="fridge", then=0), default=1, output_field=IntegerField()),
+        "cooking_record__cooked_on", "cooking_record__cooked_at", "pk")
+    for batch in batches:
+        batch.past_use_by = batch.use_by < today
+        batch.calories_per_portion = estimate_text(batch.nutrition_snapshot["per_serving"]["calories"], 0)
+    return render(request, "kitchen/prepared_shelf.html", {"batches": batches, "today": today,
+        "page": "prepared", "page_title": "Prepared food"})
+
+
+@transaction.atomic
+def _prepared_storage(request, pk, location):
+    lock_kitchen()
+    batch = get_object_or_404(PreparedBatch, pk=pk, cooking_record__undone_at__isnull=True)
+    form = PreparedStorageForm(request.POST)
+    if form.is_valid():
+        try:
+            move_prepared_batch(batch, location, form.cleaned_data["use_by"])
+        except ValueError as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(request, f"Moved to the {location}. Use by {date_format(batch.use_by, 'j M Y')}.")
+    else:
+        messages.error(request, "Choose a new use by date.")
+    return redirect("prepared_shelf")
+
+
+@require_POST
+def prepared_freeze(request, pk):
+    return _prepared_storage(request, pk, "freezer")
+
+
+@require_POST
+def prepared_unfreeze(request, pk):
+    return _prepared_storage(request, pk, "fridge")
 
 def shopping_key(name, dimension):
     return hashlib.sha256("\0".join((name, dimension)).encode()).hexdigest()

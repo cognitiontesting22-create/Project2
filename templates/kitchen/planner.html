@@ -18,6 +18,7 @@
         <a class="planned-history-link" href="{% if meal.plan.source_week != week %}{% url 'planner' %}?week={{ meal.plan.source_week|date:'Y-m-d' }}{% if selected_person %}&amp;person={{ selected_person.pk }}{% endif %}{% endif %}#plan-{{ meal.plan.leftover_of_id }}">Leftovers from {{ meal.plan.leftover_of.date|date:'l' }}'s {{ meal.plan.leftover_of.meal|lower }} · {{ meal.plan.portions_eaten }} portions</a>
         {% if not meal.plan.leftovers_eaten %}<span class="leftover-status">{% if meal.plan.shortfall_portions %}Short by {{ meal.plan.shortfall_portions }} portion{{ meal.plan.shortfall_portions|pluralize }}{% if meal.plan.leftovers_ready %} · {% if meal.plan.allocated_portions %}{{ meal.plan.allocated_portions }} of {{ meal.plan.portions_eaten }} portions available{% else %}no leftovers available{% endif %}{% endif %}{% elif meal.plan.leftovers_ready %}Leftovers ready{% else %}Expected leftovers{% endif %}</span>{% endif %}
         <span class="leftover-nutrition">{{ meal.plan.leftover_calories }} kcal per portion{% if not meal.plan.leftover_nutrition.complete %} · Partial estimate{% endif %}</span>
+        {% if meal.plan.after_use_by %}<span class="leftover-conflict">After use by</span>{% endif %}
         {% if meal.plan.leftovers_eaten %}
         <span class="planned-cooked-badge">Eaten</span>
         {% elif meal.plan.leftovers_ready %}
