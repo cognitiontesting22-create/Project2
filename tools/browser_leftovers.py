@@ -1,0 +1,146 @@
+"""Check Settings and expected leftover cards in an isolated seeded kitchen."""
+from datetime import date
+import os
+from pathlib import Path
+import socket
+import subprocess
+import sys
+from tempfile import TemporaryDirectory
+import time
+from urllib.request import urlopen
+
+from playwright.sync_api import expect, sync_playwright
+
+
+ROOT = Path(__file__).resolve().parent.parent
+ARTIFACTS = ROOT / "test-artifacts"
+MONDAY = date(2026, 11, 2)
+sys.path.insert(0, str(ROOT))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "savor.settings")
+
+
+def exercise(base, recipe_id, other_id):
+    errors = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(channel="chrome", headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1100})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(base + "/settings/")
+            field = page.get_by_label("Household portions", exact=True)
+            expect(field).to_have_value("2")
+            field.fill("3")
+            page.get_by_role("button", name="Save settings", exact=True).click()
+            expect(page.get_by_label("Household portions", exact=True)).to_have_value("3")
+            page.get_by_label("Household portions", exact=True).fill("2")
+            page.get_by_role("button", name="Save settings", exact=True).click()
+            page.goto(base + "/planner/")
+            page.get_by_role("button", name="Plan a meal", exact=True).click()
+            expect(page.locator("#plan-date")).to_have_value(MONDAY.isoformat())
+            expect(page.locator("#plan-portions-eaten")).to_be_empty()
+            page.locator("#plan-recipe").select_option(str(recipe_id))
+            page.locator("#plan-servings").fill("4")
+            page.locator("#plan-form button[type=submit]").click()
+            expect(page.locator(".planned-meal")).to_have_count(2)
+            source_id = page.locator(".planned-meal").nth(0).get_attribute("id")
+            leftover_id = page.locator(".planned-meal").nth(1).get_attribute("id")
+            card = page.locator(f"#{leftover_id}")
+            expect(card).to_contain_text("Leftovers from Monday's dinner · 2 portions")
+            expect(card).to_contain_text("Expected leftovers")
+            expect(card.locator(".planned-cook-link")).to_have_count(0)
+            expect(page.locator(f"#{source_id}")).to_contain_text("Eating 2 · 2 for leftovers")
+            card.get_by_role("link", name="Leftovers from Monday's dinner · 2 portions", exact=True).click()
+            assert page.url.endswith(f"#{source_id}")
+            page.screenshot(path=str(ARTIFACTS / "leftovers-desktop.png"), full_page=True)
+
+            def save_batch(servings):
+                page.locator(f"#{source_id} [data-open-dialog]").click()
+                expect(page.locator("#plan-portions-eaten")).to_have_value("2")
+                page.locator("#plan-servings").fill(str(servings))
+                page.locator("#plan-form button[type=submit]").click()
+
+            save_batch(4)
+            expect(page.locator(f"#{leftover_id}")).to_be_visible()
+            expect(page.locator(".planned-meal")).to_have_count(2)
+            save_batch(6)
+            expect(page.locator(".planned-meal")).to_have_count(2)
+            expect(page.get_by_role("link", name="Leftovers from Monday's dinner · 2 portions", exact=True)).to_have_count(1)
+            save_batch(2)
+            expect(page.locator(".planned-meal")).to_have_count(1)
+            expect(page.locator(f"#{source_id}")).to_contain_text("Eating 2")
+            expect(page.locator(f"#{source_id}")).not_to_contain_text("for leftovers")
+            save_batch(4)
+            leftover_id = page.locator(".planned-meal").nth(1).get_attribute("id")
+            page.locator(f"#{leftover_id}").get_by_role("button", name="Remove Tuesday Dinner", exact=True).click()
+            expect(page.locator(".message")).to_contain_text("Leftovers removed. 2 portions are spare again.")
+            expect(page.locator(".planned-meal")).to_have_count(1)
+            save_batch(4)
+            leftover_id = page.locator(".planned-meal").nth(1).get_attribute("id")
+            page.locator(f"#{leftover_id} [data-open-dialog]").click()
+            page.locator("#plan-recipe").select_option(str(other_id))
+            page.locator("#plan-servings").fill("2")
+            page.locator("#plan-form button[type=submit]").click()
+            expect(page.locator(f"#{leftover_id}")).not_to_contain_text("Expected leftovers")
+            expect(page.locator(f"#{leftover_id} .planned-cook-link")).to_be_visible()
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.screenshot(path=str(ARTIFACTS / "leftovers-mobile.png"), full_page=True)
+            assert not errors, errors
+        finally:
+            browser.close()
+
+
+def run():
+    ARTIFACTS.mkdir(exist_ok=True)
+    with TemporaryDirectory(prefix="leftovers-check-") as folder:
+        import django
+        from django.conf import settings
+        settings.DATABASES["default"]["NAME"] = str(Path(folder) / "kitchen.sqlite3")
+        django.setup()
+        from django.core.management import call_command
+        from django.db import connections
+        from kitchen.models import Recipe
+        call_command("migrate", verbosity=0)
+        call_command("seed_demo", recipes_only=True, verbosity=0)
+        recipe, other = list(Recipe.objects.order_by("pk")[:2])
+        connections.close_all()
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        address = f"127.0.0.1:{port}"
+        base = "http://" + address
+        code = """import os, django
+from datetime import date
+from unittest.mock import patch
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'savor.settings')
+from django.conf import settings
+settings.DATABASES['default']['NAME'] = os.environ['SAVOR_TEST_DATABASE']
+django.setup()
+from django.core.management import call_command
+with patch('django.utils.timezone.localdate', return_value=date(2026, 11, 2)):
+    call_command('runserver', os.environ['SAVOR_TEST_ADDRESS'], use_reloader=False)
+"""
+        environment = {**os.environ, "SAVOR_TEST_DATABASE": settings.DATABASES["default"]["NAME"], "SAVOR_TEST_ADDRESS": address}
+        with (ARTIFACTS / "leftovers-browser-server.log").open("w") as log:
+            server = subprocess.Popen([sys.executable, "-c", code], cwd=ROOT, env=environment, stdout=log, stderr=log)
+            try:
+                for _ in range(100):
+                    try:
+                        with urlopen(base + "/settings/", timeout=1) as response:
+                            assert response.status == 200
+                        break
+                    except OSError:
+                        if server.poll() is not None:
+                            raise RuntimeError("Temporary server failed; see leftovers-browser-server.log")
+                        time.sleep(.1)
+                else:
+                    raise RuntimeError("Temporary server did not start")
+                exercise(base, recipe.pk, other.pk)
+            finally:
+                server.terminate()
+                server.wait(timeout=10)
+                connections.close_all()
+    print("PASS: household Settings, 4/6/2-serving plans, exact leftover card text and links, retries, removal, replacement, edit prefills, and desktop/mobile UI; temporary database removed.")
+
+
+if __name__ == "__main__":
+    run()

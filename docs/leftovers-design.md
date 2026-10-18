@@ -1,6 +1,18 @@
 # Leftovers: cook once, plan the portions
 
-This is a proposal for the next feature. Nutrition is implemented; leftover scheduling is not yet implemented.
+This document proposes the full leftovers workflow. The implementation decisions for each stage come from the feature session; the remaining proposal is not a specification for unfinished stages.
+
+## Implemented first stage
+
+Settings stores **Household portions**, a whole number from **1 to 20**, defaulting to **2**. A cooking plan keeps its batch size in `servings` and stores `portions_eaten` separately. Leaving portions eaten blank uses household portions capped at the cooking quantity.
+
+Saving a cooking plan fills only the next calendar day's empty slot for the same meal type, and only if the spare portions cover the whole household. The new `MealPlan` links back through `leftover_of`; its servings and portions eaten both equal the household portions. This never chains to another day automatically. Repeating the same plan preserves its existing leftover meal.
+
+For a household of 2, Monday dinner with 4 servings and blank portions eaten becomes Monday eating 2 and Tuesday's **Expected leftovers** for 2. Six servings also fill Tuesday only; 2 servings create no follow-on meal. Expected leftovers link to the source card, cannot be recorded as cooking batches, and can be removed or replaced with a fresh plan. Changing an uncooked source reconciles its expected follow-on meal; removing the source removes that expected meal.
+
+This stage adds planner scheduling only. Prepared stock, consumption receipts, and changes to pantry or shopping accounting remain future work.
+
+## Remaining proposal
 
 The agreed policy is to fill **empty matching meal slots only**, leaving existing plans intact. Household portions should be configurable, with a suggested starting default of **2** until the household size is supplied.
 

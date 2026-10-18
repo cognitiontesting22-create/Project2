@@ -89,9 +89,10 @@ class KitchenTests(TestCase):
         self.assertEqual(self.client.post(reverse("plan_add"), data).status_code, 302)
         data.update(recipe=self.other.pk, servings=4)
         self.client.post(reverse("plan_add"), data)
-        self.assertEqual(MealPlan.objects.count(), 1)
-        self.assertEqual(MealPlan.objects.get().recipe, self.other)
-        self.assertEqual(MealPlan.objects.get().servings, 4)
+        slot = MealPlan.objects.filter(date=self.start, meal="Dinner")
+        self.assertEqual(slot.count(), 1)
+        self.assertEqual(slot.get().recipe, self.other)
+        self.assertEqual(slot.get().servings, 4)
 
     def test_invalid_meals_do_not_save(self):
         for field, value in [("servings", 0), ("servings", -2), ("servings", "1.5"), ("servings", 2147483648), ("meal", "Midnight"), ("date", "invalid"), ("date", "9999-12-31"), ("recipe", 123456)]:

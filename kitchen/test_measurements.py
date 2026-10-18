@@ -154,7 +154,7 @@ class ShoppingMeasurementsTests(TestCase):
         self.assertContains(detail, "8⅓")
         self.assertEqual(detail.context["servings"], 50)
         self.client.post(reverse("plan_add"), {"recipe": recipe.pk, "date": self.start.isoformat(), "meal": "Dinner", "servings": 100})
-        self.assertEqual(MealPlan.objects.get(meal="Dinner").servings, 100)
+        self.assertEqual(MealPlan.objects.get(date=self.start, meal="Dinner").servings, 100)
 
     def test_scale_rejects_invalid_servings(self):
         recipe = self.plan([("flour", "1", "g")])

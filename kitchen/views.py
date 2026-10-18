@@ -24,16 +24,16 @@ from .inventory import pantry_balances, recipe_match, add_stock, lock_kitchen, r
 
 def week_start(value=None):
     try:
-        day = date.fromisoformat(value) if value else date.today()
+        day = date.fromisoformat(value) if value else timezone.localdate()
     except (ValueError, TypeError):
-        day = date.today()
+        day = timezone.localdate()
     if not 1900 <= day.year <= 2100:
-        day = date.today()
+        day = timezone.localdate()
     return day - timedelta(days=day.weekday())
 
 def week_context(request):
     start = week_start(request.GET.get("week"))
-    return {"week": start, "week_end": start + timedelta(days=6), "prev_week": start - timedelta(days=7), "next_week": start + timedelta(days=7), "today": date.today()}
+    return {"week": start, "week_end": start + timedelta(days=6), "prev_week": start - timedelta(days=7), "next_week": start + timedelta(days=7), "today": timezone.localdate()}
 
 def recipe_box(request, favorites=False):
     recipes = Recipe.objects.annotate(total=F("prep_time") + F("cook_time"))
@@ -80,7 +80,7 @@ def recipe_detail(request, pk):
     except ValueError as error:
         servings = recipe.servings
         messages.error(request, str(error))
-    return render(request, "kitchen/recipe_detail.html", {"recipe": recipe, "servings": servings, "scaled_ingredients": scaled_ingredients(recipe, servings), "pantry_match": recipe_match(recipe, servings), "nutrition": recipe_nutrition(recipe, servings, request.GET.get("nutrition_basis")), "page": "recipes", "page_title": "Recipe box", "today": date.today(), "all_recipes": Recipe.objects.all()})
+    return render(request, "kitchen/recipe_detail.html", {"recipe": recipe, "servings": servings, "scaled_ingredients": scaled_ingredients(recipe, servings), "pantry_match": recipe_match(recipe, servings), "nutrition": recipe_nutrition(recipe, servings, request.GET.get("nutrition_basis")), "page": "recipes", "page_title": "Recipe box", "today": timezone.localdate(), "all_recipes": Recipe.objects.all()})
 
 def recipe_scale(request, pk):
     recipe = get_object_or_404(Recipe.objects.prefetch_related("ingredients"), pk=pk)
@@ -204,10 +204,12 @@ def favorite_toggle(request, pk):
 
 def planner(request):
     context = week_context(request)
-    plans = MealPlan.objects.filter(date__gte=context["week"], date__lte=context["week_end"]).select_related("recipe")
+    plans = MealPlan.objects.filter(date__gte=context["week"], date__lte=context["week_end"]).select_related("recipe", "leftover_of")
     cooked = {record.plan_id: record for record in CookingRecord.objects.filter(plan__in=plans, undone_at__isnull=True)}
     for plan in plans:
         plan.cooked_record = cooked.get(plan.pk)
+        if plan.leftover_of_id:
+            plan.source_week = week_start(plan.leftover_of.date.isoformat())
     slots = {(p.date, p.meal): p for p in plans}
     settings, _ = KitchenSettings.objects.get_or_create(pk=1)
     profiles = NutritionProfile.objects.all()
@@ -264,18 +266,34 @@ def plan_add(request):
         data = form.cleaned_data
         with transaction.atomic():
             lock_kitchen()
+            settings = KitchenSettings.objects.get(pk=1)
+            portions_eaten = data["portions_eaten"] if data["portions_eaten"] is not None else min(settings.household_portions, data["servings"])
             previous = MealPlan.objects.filter(date=data["date"], meal=data["meal"]).first()
             if previous and CookingRecord.objects.filter(plan=previous, undone_at__isnull=True).exists():
                 messages.error(request, "This meal is already cooked. Undo its cooking record before changing the plan.")
             else:
-                if previous and (previous.recipe_id != data["recipe"].pk or previous.servings != data["servings"]):
+                changed_batch = previous and (previous.recipe_id != data["recipe"].pk or previous.servings != data["servings"] or previous.leftover_of_id is not None)
+                if changed_batch:
                     previous.personal_portions.all().delete()
                     messages.info(request, "Cooking plan changed. Assign personal portions again for this meal.")
-                MealPlan.objects.update_or_create(date=data["date"], meal=data["meal"], defaults={"recipe": data["recipe"], "servings": data["servings"]})
+                if previous and (changed_batch or previous.portions_eaten != portions_eaten):
+                    previous.leftover_meals.all().delete()
+                plan, _ = MealPlan.objects.update_or_create(date=data["date"], meal=data["meal"], defaults={
+                    "recipe": data["recipe"], "servings": data["servings"], "portions_eaten": portions_eaten, "leftover_of": None})
                 messages.success(request, f'{data["recipe"].title} added to {data["date"]:%A} {data["meal"].lower()}.')
+                if plan.spare_portions >= settings.household_portions:
+                    next_day = plan.date + timedelta(days=1)
+                    _, created = MealPlan.objects.get_or_create(date=next_day, meal=plan.meal, defaults={
+                        "recipe": plan.recipe, "servings": settings.household_portions,
+                        "portions_eaten": settings.household_portions, "leftover_of": plan})
+                    if created:
+                        messages.success(request, f"Leftovers planned for {next_day:%A} {plan.meal.lower()}.")
         start = week_start(data["date"].isoformat())
     else:
-        messages.error(request, "We couldn't add that meal. Choose a recipe, a valid date, and a positive whole number of servings.")
+        if "portions_eaten" in form.errors:
+            messages.error(request, "Portions eaten cannot be more than the servings you are cooking.")
+        else:
+            messages.error(request, "We couldn't add that meal. Choose a recipe, a valid date, and a positive whole number of servings.")
         start = week_start()
     return redirect(reverse("planner") + "?" + urlencode({"week": start.isoformat()}))
 
@@ -288,8 +306,12 @@ def plan_remove(request, pk):
         if CookingRecord.objects.filter(plan=plan, undone_at__isnull=True).exists():
             messages.error(request, "This meal is already cooked. Undo its cooking record before removing it from your plan.")
         else:
+            leftover_portions = plan.portions_eaten if plan.leftover_of_id else None
             plan.delete()
-            messages.success(request, "Meal removed. Room for something new!")
+            if leftover_portions is not None:
+                messages.success(request, f"Leftovers removed. {leftover_portions} portions are spare again.")
+            else:
+                messages.success(request, "Meal removed. Room for something new!")
     return redirect(reverse("planner") + "?" + urlencode({"week": start.isoformat()}))
 
 def shopping_key(name, dimension):
@@ -358,7 +380,11 @@ def shopping_export(request):
 
 def settings_view(request):
     profile, _ = KitchenSettings.objects.get_or_create(pk=1)
-    form = SettingsForm(request.POST or None, instance=profile)
+    data = request.POST.copy() if request.method == "POST" else None
+    if data is not None:
+        # Older clients that save the original settings fields keep this value.
+        data.setdefault("household_portions", profile.household_portions)
+    form = SettingsForm(data, instance=profile)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Your kitchen, your way. Settings saved.")
@@ -449,7 +475,7 @@ def cook_recipe(request, pk):
         if not plan_id.isascii() or not plan_id.isdigit() or len(plan_id) > 18:
             from django.http import Http404
             raise Http404("Meal not found")
-        plan = get_object_or_404(MealPlan, pk=int(plan_id), recipe=recipe)
+        plan = get_object_or_404(MealPlan, pk=int(plan_id), recipe=recipe, leftover_of__isnull=True)
     try:
         servings = requested_servings(request, plan.servings if plan else recipe.servings)
     except ValueError as error:

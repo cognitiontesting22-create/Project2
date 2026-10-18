@@ -33,14 +33,14 @@ To start with your own collection, run migrations and skip `seed_demo`. Use `see
 - Search recipe names, descriptions, and ingredients. Filter vegetarian, quick, high-protein, sweet, and seasonal recipes; sort by date, name, or cooking time.
 - Save favorites and switch between grid and list views. Press **⌘ K** or **Ctrl K** to focus recipe search.
 - Type any positive whole serving count or use the +/− controls. Ingredients update as kitchen fractions such as **1½ cups**, **⅓ cup**, and **¾ tsp**, and the chosen count carries into the meal planner.
-- Plan breakfast, lunch, and dinner across any week. Choose servings for each meal, replace a filled slot, or remove it.
+- Plan breakfast, lunch, and dinner across any week. Choose cooking servings and portions eaten at the meal. If the spare portions cover your household, the next day's empty matching slot becomes expected leftovers.
 - Generate a weekly shopping list that merges matching ingredients across recipes, scales each meal’s servings, and converts compatible units. For example, **500 g + ½ kg → 1 kg** and **1 US cup + 8 US tbsp → 1½ cups**. Checkboxes persist, and downloads and printouts use the same readable quantities.
 - Keep a pantry with exact amounts, pantry/fridge/freezer locations, optional use-by dates, search, and filters for stock, items to use soon, and empty entries. Adding the same stock lot tops it up; editing sets the actual quantity left.
 - Shop for only the shortages: pantry stock is subtracted once from the combined requirements of the week’s uncooked meals. Fully covered ingredients appear separately. **Add checked items to pantry** records the exact listed purchase amounts and updates the list immediately.
 - Use **I cooked this** on a recipe or planned meal to review amounts and record your servings, cooking date, and notes. Stock is deducted automatically, and the cooking history keeps a receipt. **Undo & restore pantry** reverses a mistaken record exactly.
 - Find meals in **Cook with my pantry**, ranked by how few ingredients are missing for your chosen serving count. Partial stock counts as missing; ready-to-cook recipes have enough of every measured ingredient. Add comma-separated ingredients for a quick search, filter to recipes with all ingredients, or choose **Fewest missing** in the recipe box.
 - Enter ingredient quantities as **1½**, **1 1/2**, **1/3**, or decimals. Fractions are stored and calculated exactly, without rounding intermediate quantities.
-- Personalize your name and kitchen name in Settings.
+- Personalize your name, kitchen name, and household portions (1–20, default 2) in Settings.
 - See estimated calories, protein, carbohydrates, and fat per serving or for the whole batch. Nutrition recalculates from the local table when servings, ingredients, or food values change.
 - Browse and edit the **Nutrition table**, with 57 starter foods from USDA FoodData Central. Add product-label values per 100 g and explicit ingredient matching names, plus optional household portion weights.
 
@@ -84,7 +84,7 @@ In Settings, choose **Just me** or **Household**, add names and optional daily c
 
 Select a person in the planner and assign their portions to each meal (decimals such as `1.5` are supported; `0` means they won't eat it). Household cooking servings still drive shopping and pantry use. Combined personal portions cannot exceed the cooking quantity. Changing a meal's recipe or cooking quantity clears its personal portions for reassignment.
 
-Daily cards show nutrition from assigned planned breakfast, lunch, and dinner portions, with neutral differences against goals. Snacks, drinks and leftover scheduling are not included. Missing recipe nutrition or unassigned portions marks totals incomplete and suppresses target differences. Cooking does not record eating. Goals are user-entered; the app does not prescribe targets or define success ranges.
+Daily cards show nutrition from assigned planned breakfast, lunch, and dinner portions, with neutral differences against goals. Personal portions can be assigned to expected leftover meals too. Snacks and drinks are not included. Missing recipe nutrition or unassigned portions marks totals incomplete and suppresses target differences. Cooking does not record eating. Goals are user-entered; the app does not prescribe targets or define success ranges.
 
 ### Nutrition estimates
 
@@ -98,7 +98,13 @@ Ingredients without a food match or usable weight are visibly omitted, with a **
 
 Scaling a recipe increases the entire batch's ingredient amounts and nutrient totals. Nutrition **per serving stays constant** because the batch is divided into proportionally more servings. Editing the recipe's base yield without increasing ingredients changes the per-serving result. Both views and the batch summary update automatically, including after reload and without JavaScript.
 
-See [the proposed leftovers design](docs/leftovers-design.md) for the next feature's batch/portion accounting and the agreed empty-slot policy. Leftover scheduling is a design proposal, not yet implemented.
+### Expected leftovers in the planner
+
+**Household portions** sets how many portions your household usually eats at a meal. In the plan dialog, leave **Portions eaten at this meal** blank to use that number, capped at the cooking servings, or enter a whole number from 1 through the cooking quantity.
+
+With household portions set to 2, planning Monday dinner for 4 servings schedules 2 expected leftover portions for Tuesday dinner if that slot is empty. A 6-serving batch also fills Tuesday only; the other 2 portions stay spare. A 2-serving batch creates no leftover meal. The rule works across week boundaries, never overwrites another plan, and never fills a second day automatically.
+
+Leftover cards link to their source batch and have no cooking action. Remove one to release its portions, or replace it with a fresh recipe. Source edits reconcile expected leftovers, and removing an uncooked source removes its expected follow-on meal. This stage does not change pantry or shopping calculations or add prepared-food inventory. See [the leftovers design](docs/leftovers-design.md) for the implemented first stage and the remaining proposal.
 
 Images and fonts are included under `static/`, so the starter experience does not require an external image or font service at runtime. Photos are illustrative. Your own external image URLs still need an internet connection.
 
@@ -121,6 +127,7 @@ For the browser smoke test, install the development requirements, start the serv
 .venv/bin/python tools/browser_pantry.py
 .venv/bin/python tools/browser_nutrition.py
 .venv/bin/python tools/browser_recipe_import.py
+.venv/bin/python tools/browser_leftovers.py
 ```
 
 The browser script uses an installed Google Chrome through Playwright. It checks real UI interactions, persistence, serving calculations, downloads, and mobile layouts, and saves screenshots in `test-artifacts/`. Run it on a fresh demo database: it expects the twelve starter recipes, creates a temporary recipe and future meal slot, and removes them after verification.
@@ -132,6 +139,8 @@ The pantry browser test starts its own temporary SQLite database and local serve
 The nutrition browser test also uses an isolated kitchen. It checks food entry/edit/removal, live calories and macros, batch and per-serving scaling, source cup weights, partial estimates, reload persistence, no-JavaScript forms, and mobile layouts. Backend nutrition tests cover exact arithmetic, source standards, count weights, zero versus missing data, explicit matching, table validation, recipe edits, and independence from shopping conversions.
 
 The recipe-import browser test uses an isolated kitchen to exercise paste/review/cancel/save, editable extracted fields, dynamic ingredient rows, exact scaling, nutrition, planner and shopping integration, correction of an invalid draft, mobile layouts, and the no-JavaScript flow. Backend importer tests cover ambiguous quantities, package sizes, units, missing sections, limits, source preservation, HTML escaping, CSRF, and recipe saving.
+
+The leftovers browser test starts its own temporary seeded kitchen and local server. It checks household portions in Settings, the 4/6/2-serving examples, exact card text and source links, repeated saves, removal, replacement, and edit prefills. Backend tests also cover validation, week boundaries, occupied slots, migration backfills, cooked-plan protections, and personal portions.
 
 ## Project structure
 

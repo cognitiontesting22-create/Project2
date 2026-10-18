@@ -72,6 +72,15 @@ class MealPlanForm(forms.Form):
     date = forms.DateField(widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}))
     meal = forms.ChoiceField(choices=MealPlan.MEAL_CHOICES)
     servings = forms.IntegerField(min_value=1, max_value=MAX_SERVINGS)
+    portions_eaten = forms.IntegerField(label="Portions eaten at this meal", required=False, min_value=1,
+        error_messages={"invalid": "Portions eaten cannot be more than the servings you are cooking.",
+                        "min_value": "Portions eaten cannot be more than the servings you are cooking."})
+
+    def clean(self):
+        data = super().clean()
+        if data.get("portions_eaten") is not None and data.get("servings") is not None and data["portions_eaten"] > data["servings"]:
+            self.add_error("portions_eaten", "Portions eaten cannot be more than the servings you are cooking.")
+        return data
 
     def clean_date(self):
         day = self.cleaned_data["date"]
@@ -80,9 +89,13 @@ class MealPlanForm(forms.Form):
         return day
 
 class SettingsForm(forms.ModelForm):
+    household_portions = forms.IntegerField(label="Household portions", min_value=1, max_value=20,
+        error_messages={code: "Household portions must be a whole number from 1 to 20."
+                        for code in ("invalid", "min_value", "max_value", "required")})
+
     class Meta:
         model = KitchenSettings
-        fields = ["name", "kitchen_name", "measurement_system"]
+        fields = ["name", "kitchen_name", "household_portions", "measurement_system"]
 
 class StockQuantityField(QuantityField):
     def to_python(self, value):

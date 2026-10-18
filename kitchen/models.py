@@ -73,6 +73,12 @@ class MealPlan(models.Model):
     date = models.DateField()
     meal = models.CharField(max_length=15, choices=MEAL_CHOICES, default="Dinner")
     servings = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1)])
+    portions_eaten = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1)])
+    leftover_of = models.ForeignKey("self", null=True, blank=True, related_name="leftover_meals", on_delete=models.CASCADE)
+
+    @property
+    def spare_portions(self):
+        return self.servings - self.portions_eaten
 
     class Meta:
         ordering = ["date", "meal"]
@@ -90,6 +96,7 @@ class KitchenSettings(models.Model):
     nutrition_mode = models.CharField(max_length=10, choices=[("personal", "Just me"), ("household", "Household")], default="personal")
     name = models.CharField(max_length=50, default="Alex")
     kitchen_name = models.CharField(max_length=60, default="My little kitchen")
+    household_portions = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1), MaxValueValidator(20)])
     measurement_system = models.CharField(max_length=10, choices=MEASUREMENT_SYSTEMS, default="us")
 
 class PantryItem(models.Model):
