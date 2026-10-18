@@ -18,6 +18,7 @@ urlpatterns = [
     path("planner/add/", views.plan_add, name="plan_add"),
     path("planner/<int:pk>/remove/", views.plan_remove, name="plan_remove"),
     path("planner/<int:pk>/eat/", views.leftover_eat, name="leftover_eat"),
+    path("planner/<int:pk>/leftovers/", views.leftover_schedule, name="leftover_schedule"),
     path("leftovers/<int:pk>/undo/", views.leftover_undo, name="leftover_undo"),
     path("shopping/", views.shopping, name="shopping"),
     path("shopping/check/", views.shopping_check, name="shopping_check"),

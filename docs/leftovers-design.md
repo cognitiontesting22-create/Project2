@@ -24,7 +24,7 @@ History displays the batch's made/eaten/remaining amounts and explicit date. A c
 
 ## Implemented third stage
 
-Both the uncooked source plan and its prepared batch store `reserved_portions` explicitly. Remaining is physical stock (or planned servings minus portions eaten before cooking); reserved is promised to uneaten leftover planner meals; unassigned is remaining minus reserved. Reservations never exceed remaining, and all three counts stay nonnegative. Actual cooking must leave enough portions for existing reservations or it is refused without recording or deducting anything.
+Both the uncooked source plan and its prepared batch store `reserved_portions` explicitly. Remaining is physical stock (or planned servings minus portions eaten before cooking); reserved is promised to uneaten leftover planner meals; unassigned is remaining minus reserved. Reservations never exceed remaining, and all three counts stay nonnegative. The fifth stage below reconciles reservations when cooking produces fewer portions than planned.
 
 **I ate this** records a `LeftoverMeal` with its batch, planner meal, portions, local date, unique action token and undo time. It atomically reduces remaining and reserved under `lock_kitchen`, without touching pantry stock or the cooking receipt. The card shows **Eaten**. Retrying the same token or recording an already eaten meal changes nothing. Undone records keep their tokens even after their former batch or planner meal is removed.
 
@@ -39,6 +39,18 @@ Shopping requirements include only uncooked cooking batches (`leftover_of` is em
 Each new prepared batch snapshots exact per-portion calories, protein, carbs, and fat from `recipe_nutrition` at its actual cooking yield, together with availability and complete/partial status. Fractions are stored as exact strings, and unavailable nutrients as missing values. Food-table edits/deletions and recipe ingredient/base-yield edits never recalculate the snapshot. Undo deletes it with the batch; recording again takes a fresh snapshot. Existing batches receive missing estimates rather than reconstructed historical numbers.
 
 Cooked leftovers show the snapshot's calories rounded through `estimate_text`, or a dash if missing, with **Partial estimate** for incomplete snapshots. Expected leftovers show live recipe estimates. Personal planned nutrition uses snapshots for cooked-source leftovers and live estimates for all other meals. For example, a cooked 4-serving batch from 400 g at 130 kcal per 100 g keeps **130 kcal per portion** on its leftover card and a 1-portion personal total after the food is edited to 200; the recipe page shows the live **200 kcal per serving**. Personal portions retain the existing cap and validation message.
+
+## Implemented fifth stage
+
+Source cards show spare portions that cannot feed the whole household, such as **1 portion available** for 3 planned with 2 eaten. No leftover meal is created. An occupied next-day slot is preserved and reported by its actual weekday and meal, with the spare portions unassigned. No later day is silently filled, and leftovers are never combined with fresh cooking.
+
+Every source card with at least a household's worth of unassigned portions offers **Schedule leftovers**. The POST-only `leftover_schedule` route creates a household-sized reservation on any explicitly chosen later date and meal type. It refuses occupied slots, dates on/before the source, insufficient unassigned portions, and dates after a cooked batch's use-by date. These refusals leave kitchen data unchanged. Cooking directly from a recipe without a planner source remains outside scheduling.
+
+Each leftover meal now stores `allocated_portions` separately from its requested `portions_eaten`; the difference is its shortfall. Same-recipe source edits preserve all leftover slots and reconcile allocations from the earliest date, with breakfast before lunch before dinner on a shared date. Uncovered meals display **Short by N portions** and are reported by slot. Growing the plan covers existing requests again. Recipe replacement removes the old expected meals and names their slots. Removing an uncooked source removes every dependent meal and names all slots in one message. The automatic next-day rule runs only when the source has no leftover meal yet.
+
+Cooking cuts existing allocations to fit the actual remainder, taking from the latest slots first. Extra yield remains unassigned and never enlarges a reservation automatically. With 3 made and 2 eaten against a plan for 4, remaining and reserved both become 1 and Tuesday shows **Short by 1 portion · 1 of 2 portions available**. Eating consumes that allocated portion only; a zero allocation says **There are no portions left to eat.** Retry, consumption undo, and cooked/eaten-plan protections still apply to partial meals.
+
+The prepared batch keeps the source's pre-cooking servings and portions eaten. Cooking undo restores those quantities and full expected reservations. If extra actual yield was explicitly reserved after cooking, the pending source quantity is kept large enough to cover all those reservations too. Existing batches have no historical planned quantities, so undo uses their current plan as the starting point. All allocation, aggregate reservation, and remaining-portion mutations share the kitchen lock and transaction; receipts remain the only authority for restoring raw stock.
 
 ## Remaining proposal
 

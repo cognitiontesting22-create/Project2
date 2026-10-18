@@ -107,7 +107,7 @@ class LeftoverMealTests(TestCase):
         self.plan(2)
         source.refresh_from_db()
         self.assertEqual((source.remaining_portions, source.reserved_portions, source.unassigned_portions), (0, 0, 0))
-        self.assertFalse(source.leftover_meals.exists())
+        self.assertEqual(source.leftover_meals.get().allocated_portions, 0)
 
     def test_retries_same_token_and_same_meal_with_different_tokens(self):
         self.prepare()
@@ -280,17 +280,14 @@ class LeftoverMealTests(TestCase):
         self.plan(6)
         self.assertEqual(MealPlan.objects.get(date=MONDAY).reserved_portions, 0)
 
-    def test_cooking_cannot_leave_fewer_portions_than_reserved(self):
+    def test_cooking_fewer_portions_reduces_the_reservation_to_what_exists(self):
         self.plan()
         source = MealPlan.objects.get(date=MONDAY)
-        before = self.pantry_snapshot()
-        with self.assertRaisesMessage(ValueError, "These portions are reserved for leftover meals."):
-            record_cooking(self.recipe, 4, MONDAY, uuid4(), plan=source, portions_eaten=3, use_by=USE_BY)
-        self.assertEqual(self.pantry_snapshot(), before)
-        self.assertFalse(CookingRecord.objects.exists())
-        self.assertFalse(PreparedBatch.objects.exists())
+        record, created = record_cooking(self.recipe, 4, MONDAY, uuid4(), plan=source, portions_eaten=3, use_by=USE_BY)
+        self.assertTrue(created)
+        self.assertEqual((record.prepared_batch.remaining_portions, record.prepared_batch.reserved_portions), (1, 1))
         source.refresh_from_db()
-        self.assertEqual((source.servings, source.portions_eaten, source.reserved_portions), (4, 2, 2))
+        self.assertEqual((source.servings, source.portions_eaten, source.reserved_portions), (4, 3, 1))
 
     def test_reservation_helper_refuses_overbooking_and_negative_reservations(self):
         self.prepare()
@@ -322,7 +319,7 @@ class LeftoverMealTests(TestCase):
         with transaction.atomic():
             lock_kitchen()
             second = MealPlan.objects.create(recipe=self.recipe, date=MONDAY + timedelta(days=2),
-                servings=2, portions_eaten=2, leftover_of=self.source)
+                servings=2, portions_eaten=2, allocated_portions=2, leftover_of=self.source)
             change_reservation(self.source, 2)
         self.assert_numbers(4, 4, 0)
         self.eat()

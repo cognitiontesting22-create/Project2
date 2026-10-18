@@ -16,7 +16,7 @@
         <a href="{% url 'recipe_detail' meal.plan.recipe.pk %}"><img src="{{ meal.plan.recipe.image_src }}" alt="{{ meal.plan.recipe.title }}"><h3>{{ meal.plan.recipe.title }}</h3></a>
         {% if meal.plan.leftover_of_id %}
         <a class="planned-history-link" href="{% if meal.plan.source_week != week %}{% url 'planner' %}?week={{ meal.plan.source_week|date:'Y-m-d' }}{% if selected_person %}&amp;person={{ selected_person.pk }}{% endif %}{% endif %}#plan-{{ meal.plan.leftover_of_id }}">Leftovers from {{ meal.plan.leftover_of.date|date:'l' }}'s {{ meal.plan.leftover_of.meal|lower }} · {{ meal.plan.portions_eaten }} portions</a>
-        <span>{% if meal.plan.leftovers_ready %}Leftovers ready{% else %}Expected leftovers{% endif %}</span>
+        {% if not meal.plan.leftovers_eaten %}<span class="leftover-status">{% if meal.plan.shortfall_portions %}Short by {{ meal.plan.shortfall_portions }} portion{{ meal.plan.shortfall_portions|pluralize }}{% if meal.plan.leftovers_ready %} · {% if meal.plan.allocated_portions %}{{ meal.plan.allocated_portions }} of {{ meal.plan.portions_eaten }} portions available{% else %}no leftovers available{% endif %}{% endif %}{% elif meal.plan.leftovers_ready %}Leftovers ready{% else %}Expected leftovers{% endif %}</span>{% endif %}
         <span class="leftover-nutrition">{{ meal.plan.leftover_calories }} kcal per portion{% if not meal.plan.leftover_nutrition.complete %} · Partial estimate{% endif %}</span>
         {% if meal.plan.leftovers_eaten %}
         <span class="planned-cooked-badge">Eaten</span>
@@ -31,6 +31,11 @@
         <span class="planned-cooked-badge">{% include 'kitchen/icon.html' with name='check' %}Cooked</span><a class="planned-history-link" href="{% url 'cooking_history' %}#cooking-{{ meal.plan.cooked_record.pk }}">View record</a>
         {% else %}
         <a class="planned-cook-link" href="{% url 'cook_recipe' meal.plan.recipe.pk %}?plan={{ meal.plan.pk }}">{% include 'kitchen/icon.html' with name='chef' %}I cooked this</a>
+        {% endif %}
+        {% if meal.plan.some_available %}<span>{{ meal.plan.accounting.unassigned_portions }} portion{{ meal.plan.accounting.unassigned_portions|pluralize }} available</span>{% endif %}
+        {% if meal.plan.can_schedule %}
+        <span>{{ meal.plan.accounting.unassigned_portions }} portion{{ meal.plan.accounting.unassigned_portions|pluralize }} unassigned</span>
+        <details class="leftover-schedule"><summary>Schedule leftovers</summary><form action="{% url 'leftover_schedule' meal.plan.pk %}" method="post">{% csrf_token %}<label class="field">Date<input type="date" name="date" min="{{ meal.plan.schedule_date|date:'Y-m-d' }}" value="{{ meal.plan.schedule_date|date:'Y-m-d' }}" required></label><label class="field">Meal<select name="meal"><option>Breakfast</option><option>Lunch</option><option selected>Dinner</option></select></label><button class="button button-small button-outline" type="submit">Schedule leftovers</button></form></details>
         {% endif %}
         {% endif %}
         {% if not meal.plan.leftovers_eaten %}{% if meal.plan.leftover_of_id or not meal.plan.cooked_record %}

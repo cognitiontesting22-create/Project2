@@ -180,12 +180,12 @@ class LeftoversTests(TestCase):
         source = self.source()
         self.assertEqual(source.leftover_meals.get().recipe_id, self.other.pk)
         self.plan(recipe=self.other.pk, servings=2)
-        self.assertFalse(source.leftover_meals.exists())
+        self.assertEqual(source.leftover_meals.get().allocated_portions, 0)
 
     def test_removing_an_uncooked_source_removes_its_expected_leftovers(self):
         self.plan()
         response = self.client.post(reverse("plan_remove", args=[self.source().pk]))
-        self.assertEqual(self.messages(response), ["Meal removed. Room for something new!"])
+        self.assertEqual(self.messages(response), ["Meal removed. Its expected leftovers on Tuesday dinner were removed too."])
         self.assertFalse(MealPlan.objects.exists())
 
     def test_cooked_plan_protection_messages_and_rows_stay_unchanged(self):

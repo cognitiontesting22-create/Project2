@@ -66,7 +66,8 @@ def exercise(base, recipe_id, other_id):
             expect(page.locator(".planned-meal")).to_have_count(2)
             expect(page.get_by_role("link", name="Leftovers from Monday's dinner · 2 portions", exact=True)).to_have_count(1)
             save_batch(2)
-            expect(page.locator(".planned-meal")).to_have_count(1)
+            expect(page.locator(".planned-meal")).to_have_count(2)
+            expect(page.locator(f"#{leftover_id}")).to_contain_text("Short by 2 portions")
             expect(page.locator(f"#{source_id}")).to_contain_text("Eating 2")
             expect(page.locator(f"#{source_id}")).not_to_contain_text("for leftovers")
             save_batch(4)
@@ -214,6 +215,88 @@ def exercise_shopping_nutrition(base, recipe_id, food_id):
             browser.close()
 
 
+def exercise_edge_cases(base, recipe_id):
+    errors = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(channel="chrome", headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1100})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            week = "2026-11-23"
+            page.goto(base + "/planner/?week=" + week)
+
+            def add(meal_button, servings):
+                page.get_by_role("button", name=meal_button, exact=True).click()
+                page.locator("#plan-recipe").select_option(str(recipe_id))
+                page.locator("#plan-servings").fill(str(servings))
+                page.locator("#plan-form button[type=submit]").click()
+
+            add("Plan Monday Dinner", 3)
+            source_id = page.locator(".planned-meal").get_attribute("id")
+            source = page.locator(f"#{source_id}")
+            expect(source).to_contain_text("1 portion available")
+            expect(page.locator(".messages")).to_contain_text("1 portion available. Not enough for the household's 2 portions, so Tuesday dinner stays open.")
+            expect(page.locator(".planned-meal")).to_have_count(1)
+
+            def edit(servings):
+                source.get_by_role("button", name="Change Monday Dinner", exact=True).click()
+                page.locator("#plan-servings").fill(str(servings))
+                page.locator("#plan-form button[type=submit]").click()
+
+            edit(4)
+            leftover_id = page.locator(".planned-meal").nth(1).get_attribute("id")
+            edit(2)
+            expect(page.locator(f"#{leftover_id}")).to_contain_text("Short by 2 portions")
+            edit(6)
+            expect(page.locator(f"#{leftover_id}")).to_contain_text("Expected leftovers")
+            source.locator(".leftover-schedule summary").click()
+            source.locator('.leftover-schedule input[name="date"]').fill("2026-11-25")
+            source.locator('.leftover-schedule select[name="meal"]').select_option("Lunch")
+            source.get_by_role("button", name="Schedule leftovers", exact=True).click()
+            expect(page.locator(".messages")).to_contain_text("Leftovers planned for Wednesday lunch.")
+            expect(page.locator(".planned-meal")).to_have_count(3)
+            empty_id = page.locator(".planner-day").nth(2).locator(".planned-meal").get_attribute("id")
+            source.locator(".planned-cook-link").click()
+            page.get_by_label("How many servings did you make?", exact=True).fill("3")
+            page.get_by_role("button", name="Update quantities", exact=True).click()
+            page.get_by_label("Use by", exact=True).fill("2026-11-05")
+            page.get_by_role("button", name="Record meal & update pantry", exact=True).click()
+            cooking_anchor = page.url.split("#")[-1]
+            expect(page.locator(".messages")).to_contain_text("Tuesday dinner is short by 1 portion.")
+            expect(page.locator(".messages")).to_contain_text("Wednesday lunch is short by 2 portions.")
+            page.goto(base + "/planner/?week=" + week)
+            expect(page.locator(f"#{leftover_id}")).to_contain_text("Short by 1 portion · 1 of 2 portions available")
+            expect(page.locator(f"#{empty_id}")).to_contain_text("Short by 2 portions · no leftovers available")
+            page.screenshot(path=str(ARTIFACTS / "leftovers-shortfall-desktop.png"), full_page=True)
+            page.locator(f"#{empty_id}").get_by_role("button", name="I ate this", exact=True).click()
+            expect(page.locator(".messages")).to_contain_text("There are no portions left to eat.")
+            page.locator(f"#{leftover_id}").get_by_role("button", name="I ate this", exact=True).click()
+            expect(page.locator(".messages")).to_contain_text("Leftovers eaten. 1 portion used from Monday's dinner.")
+            page.goto(base + "/cooking-history/")
+            page.locator(".leftover-history-card").filter(has_text="Ate leftovers · 1 portion from Monday's dinner").get_by_role("button", name="Undo", exact=True).click()
+            page.locator(f"#{cooking_anchor}").get_by_role("button", name="Undo & restore pantry", exact=True).click()
+            page.goto(base + "/planner/?week=" + week)
+            expect(page.get_by_text("Expected leftovers", exact=True)).to_have_count(2)
+            source.get_by_role("button", name="Remove Monday Dinner", exact=True).click()
+            expect(page.locator(".messages")).to_contain_text("Meal removed. Its expected leftovers on Tuesday dinner, Wednesday lunch were removed too.")
+            expect(page.locator(".planned-meal")).to_have_count(0)
+            add("Plan Tuesday Dinner", 2)
+            add("Plan Monday Dinner", 4)
+            expect(page.locator(".messages")).to_contain_text("Tuesday dinner is already planned. 2 portions are unassigned.")
+            source = page.locator(".planner-day").nth(0).locator(".planned-meal")
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.reload()
+            source.locator(".leftover-schedule summary").click()
+            source.locator('.leftover-schedule input[name="date"]').fill("2026-11-25")
+            source.locator('.leftover-schedule select[name="meal"]').select_option("Breakfast")
+            page.screenshot(path=str(ARTIFACTS / "leftovers-schedule-mobile.png"), full_page=True)
+            source.get_by_role("button", name="Schedule leftovers", exact=True).click()
+            expect(page.locator(".messages")).to_contain_text("Leftovers planned for Wednesday breakfast.")
+            assert not errors, errors
+        finally:
+            browser.close()
+
+
 def run():
     ARTIFACTS.mkdir(exist_ok=True)
     with TemporaryDirectory(prefix="leftovers-check-") as folder:
@@ -266,11 +349,12 @@ with patch('django.utils.timezone.localdate', return_value=date(2026, 11, 2)):
                 Ingredient.objects.create(recipe=rice, name="Rice", quantity="200", unit="g")
                 NutritionProfile.objects.create(name="Alex", calories=2000, protein=100)
                 exercise_shopping_nutrition(base, rice.pk, rice_food.pk)
+                exercise_edge_cases(base, rice.pk)
             finally:
                 server.terminate()
                 server.wait(timeout=10)
                 connections.close_all()
-    print("PASS: household Settings, 4/6/2-serving plans, exact leftover cards, retries, removal, replacement, explicit use-by validation, prepared batches, eating, reservation balances for yields 4 and 6, leftover undo before cooking undo, recording again, rice shopping/export, frozen nutrition after table edits, personal totals, and desktop/mobile UI; temporary database removed.")
+    print("PASS: household Settings, 4/6/2-serving plans, exact cards, retries, removal, replacement, prepared batches, eating and undo, rice shopping/export, frozen nutrition and personal totals, spare portions, occupied slots, explicit scheduling, source shrink/growth, partial cooking and eating, restored reservations, and desktop/mobile UI; temporary database removed.")
 
 
 if __name__ == "__main__":

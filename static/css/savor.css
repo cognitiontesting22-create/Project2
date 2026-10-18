@@ -64,6 +64,12 @@
 .planned-meal>.portion-accounting{white-space:normal}
 .leftover-eat-form{margin:6px 2px}
 .planned-meal>.leftover-nutrition{white-space:normal}
+.planned-meal>.leftover-status{white-space:normal}
+.leftover-schedule{font-size:10px;margin:6px 2px}
+.leftover-schedule summary{cursor:pointer;color:var(--green)}
+.leftover-schedule .field{font-size:10px;margin:8px 0}
+.leftover-schedule input,.leftover-schedule select{min-width:0;width:100%;padding:6px}
+.planned-meal:has(.leftover-schedule[open]){overflow:visible;height:auto;min-height:100%;z-index:2;box-shadow:0 4px 12px #0002;padding-bottom:30px}
 .leftover-eat-form .text-button{font-size:10px;color:var(--green)}
 .leftover-history-card{grid-template-columns:1fr}
 .leftover-history-card h2{font-size:23px;margin:8px 0 18px}

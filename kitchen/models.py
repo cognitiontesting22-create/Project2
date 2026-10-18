@@ -75,6 +75,7 @@ class MealPlan(models.Model):
     servings = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1)])
     portions_eaten = models.PositiveIntegerField(default=2, validators=[MinValueValidator(0)])
     reserved_portions = models.PositiveIntegerField(default=0)
+    allocated_portions = models.PositiveIntegerField(default=0)
     leftover_of = models.ForeignKey("self", null=True, blank=True, related_name="leftover_meals", on_delete=models.CASCADE)
 
     @property
@@ -89,11 +90,16 @@ class MealPlan(models.Model):
     def unassigned_portions(self):
         return self.remaining_portions - self.reserved_portions
 
+    @property
+    def shortfall_portions(self):
+        return self.portions_eaten - self.allocated_portions if self.leftover_of_id else 0
+
     class Meta:
         ordering = ["date", "meal"]
         constraints = [
             models.UniqueConstraint(fields=["date", "meal"], name="one_recipe_per_meal_slot"),
             models.CheckConstraint(condition=models.Q(reserved_portions__lte=models.F("servings") - models.F("portions_eaten")), name="planned_reservations_within_remaining"),
+            models.CheckConstraint(condition=models.Q(allocated_portions__lte=models.F("portions_eaten")), name="leftover_allocation_within_portions"),
         ]
 
 class ShoppingCheck(models.Model):
@@ -174,6 +180,8 @@ class PreparedBatch(models.Model):
     storage_location = models.CharField(max_length=7, choices=STORAGE_CHOICES, default="fridge")
     use_by = models.DateField(null=True, blank=True)
     nutrition_snapshot = models.JSONField(default=empty_nutrition_snapshot)
+    planned_servings = models.PositiveIntegerField(null=True, blank=True)
+    planned_portions_eaten = models.PositiveIntegerField(null=True, blank=True)
 
     @property
     def unassigned_portions(self):

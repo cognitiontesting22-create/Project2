@@ -123,6 +123,11 @@ class PantryForm(forms.ModelForm):
     def clean_name(self):
         return " ".join(self.cleaned_data["name"].split())
 
+class LeftoverScheduleForm(forms.Form):
+    date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    meal = forms.ChoiceField(choices=MealPlan.MEAL_CHOICES)
+
+
 class LeftoverEatForm(forms.Form):
     action_token = forms.UUIDField(widget=forms.HiddenInput)
 
