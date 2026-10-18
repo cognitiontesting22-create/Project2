@@ -194,7 +194,7 @@ class InventoryTests(TestCase):
     def test_same_planned_meal_different_tokens_deducts_once_and_actual_servings_saved(self):
         item = self.stock("Milk", 3, "cup")
         plan = self.plan()
-        first = self.cook(plan=plan, servings=4)
+        first = self.cook(plan=plan, servings=4, use_by=self.today + timedelta(days=3))
         second = self.cook(plan=plan)
         plan.refresh_from_db()
         item.refresh_from_db()

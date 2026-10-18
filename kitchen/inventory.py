@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, shopping_display, quantity_display
-from .models import CookingRecord, KitchenSettings, MealPlan, PantryItem, Recipe
+from .models import CookingRecord, KitchenSettings, MealPlan, PantryItem, PreparedBatch, Recipe
 
 def lock_kitchen():
     # Start with a write: SQLite then serializes every read/modify/write stock action.
@@ -71,7 +71,7 @@ def add_stock(data):
     return _add_stock(data["name"], Fraction(data["quantity"]), data["unit"], data["measurement_system"], data["location"], data.get("expires_on"))
 
 @transaction.atomic
-def record_cooking(recipe, servings, cooked_on, action_token, notes="", plan=None):
+def record_cooking(recipe, servings, cooked_on, action_token, notes="", plan=None, *, portions_eaten=None, storage_location="fridge", use_by=None):
     lock_kitchen()
     existing = CookingRecord.objects.filter(action_token=action_token).first()
     if existing:
@@ -95,6 +95,24 @@ def record_cooking(recipe, servings, cooked_on, action_token, notes="", plan=Non
         existing = CookingRecord.objects.filter(plan=plan, undone_at__isnull=True).first()
         if existing:
             return existing, False
+        if plan.leftover_of_id:
+            raise ValueError("Leftover meals are not cooking batches.")
+    if portions_eaten is None:
+        portions_eaten = plan.portions_eaten if plan else min(KitchenSettings.objects.get(pk=1).household_portions, servings)
+    if not isinstance(portions_eaten, int) or not 0 <= portions_eaten <= servings:
+        raise ValueError("Portions eaten cannot be more than the servings you made.")
+    if storage_location not in dict(PreparedBatch.STORAGE_CHOICES):
+        raise ValueError("Choose fridge or freezer for the portions you are keeping.")
+    remaining_portions = servings - portions_eaten
+    if remaining_portions:
+        if use_by is None:
+            raise ValueError("Choose a use by date for the portions you are keeping.")
+        if not isinstance(use_by, date):
+            raise ValueError("Choose a valid use by date.")
+        if use_by < cooked_on:
+            raise ValueError("Use by must be on or after the day you cooked.")
+    else:
+        use_by = None
     stock = list(usable_pantry())
     stock.sort(key=lambda item: (item.expires_on or date.max, item.pk))
     groups = {}
@@ -121,9 +139,12 @@ def record_cooking(recipe, servings, cooked_on, action_token, notes="", plan=Non
             shortages.append({"name": requirement["name"], "amount_display": display["amount_display"], "unit": display["unit"], "exact": display["exact"]})
     record = CookingRecord.objects.create(recipe=recipe, recipe_title=recipe.title, image_snapshot=recipe.image_src, plan=plan, servings=servings,
         cooked_on=cooked_on, action_token=action_token, notes=notes, deductions=deductions, shortages=shortages)
-    if plan and plan.servings != servings:
+    PreparedBatch.objects.create(cooking_record=record, recipe_title=record.recipe_title, yield_portions=servings,
+        portions_eaten=portions_eaten, remaining_portions=remaining_portions, storage_location=storage_location, use_by=use_by)
+    if plan:
         plan.servings = servings
-        plan.save(update_fields=["servings"])
+        plan.portions_eaten = portions_eaten
+        plan.save(update_fields=["servings", "portions_eaten"])
     return record, True
 
 @transaction.atomic
@@ -143,6 +164,7 @@ def undo_cooking(record):
             _add_stock(deduction["name"], Fraction(deduction["quantity"]), deduction["unit"], deduction["measurement_system"], deduction["location"], date.fromisoformat(deduction["expires_on"]) if deduction["expires_on"] else None)
     record.undone_at = timezone.now()
     record.save(update_fields=["undone_at"])
+    PreparedBatch.objects.filter(cooking_record=record).delete()
     return True
 
 def deduction_display(deduction):

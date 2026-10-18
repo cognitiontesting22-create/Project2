@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Ingredient, KitchenSettings, MealPlan, Recipe, PantryItem, NutritionFood, NutritionAlias, NutritionProfile
+from .models import Ingredient, KitchenSettings, MealPlan, Recipe, PantryItem, NutritionFood, NutritionAlias, NutritionProfile, PreparedBatch
 from django.utils import timezone
 from .measurements import MAX_SERVINGS, parse_quantity, format_quantity, normalize_name
 from .recipe_import import MAX_TEXT_LENGTH
@@ -127,7 +127,31 @@ class CookForm(forms.Form):
     servings = forms.IntegerField(min_value=1, max_value=MAX_SERVINGS, widget=forms.HiddenInput())
     action_token = forms.UUIDField(widget=forms.HiddenInput())
     cooked_on = forms.DateField(widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}))
+    portions_eaten = forms.IntegerField(label="Portions eaten at this meal", min_value=0,
+        error_messages={"invalid": "Portions eaten cannot be more than the servings you made.",
+                        "min_value": "Portions eaten cannot be more than the servings you made."})
+    storage_location = forms.ChoiceField(label="Store the rest in", choices=PreparedBatch.STORAGE_CHOICES, initial="fridge")
+    use_by = forms.DateField(label="Use by", required=False,
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}))
     notes = forms.CharField(required=False, max_length=500, widget=forms.Textarea(attrs={"rows": 2, "placeholder": "How did it turn out? Any little tweaks for next time?"}))
+
+    def clean(self):
+        data = super().clean()
+        servings, eaten = data.get("servings"), data.get("portions_eaten")
+        if servings is None or eaten is None:
+            return data
+        if eaten > servings:
+            self.add_error("portions_eaten", "Portions eaten cannot be more than the servings you made.")
+        elif eaten == servings:
+            # A date, including malformed input, is irrelevant when no food is kept.
+            self.errors.pop("use_by", None)
+            data["use_by"] = None
+        elif "use_by" not in self.errors:
+            if data.get("use_by") is None:
+                self.add_error("use_by", "Choose a use by date for the portions you are keeping.")
+            elif data.get("cooked_on") and data["use_by"] < data["cooked_on"]:
+                self.add_error("use_by", "Use by must be on or after the day you cooked.")
+        return data
 
     def clean_cooked_on(self):
         day = self.cleaned_data["cooked_on"]

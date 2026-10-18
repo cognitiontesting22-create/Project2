@@ -73,7 +73,7 @@ class MealPlan(models.Model):
     date = models.DateField()
     meal = models.CharField(max_length=15, choices=MEAL_CHOICES, default="Dinner")
     servings = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1)])
-    portions_eaten = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1)])
+    portions_eaten = models.PositiveIntegerField(default=2, validators=[MinValueValidator(0)])
     leftover_of = models.ForeignKey("self", null=True, blank=True, related_name="leftover_meals", on_delete=models.CASCADE)
 
     @property
@@ -144,6 +144,24 @@ class CookingRecord(models.Model):
 
     def __str__(self):
         return f"{self.recipe_title} · {self.cooked_on}"
+
+
+class PreparedBatch(models.Model):
+    STORAGE_CHOICES = [("fridge", "Fridge"), ("freezer", "Freezer")]
+    cooking_record = models.OneToOneField(CookingRecord, related_name="prepared_batch", on_delete=models.CASCADE)
+    recipe_title = models.CharField(max_length=120)
+    yield_portions = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    portions_eaten = models.PositiveIntegerField(validators=[MinValueValidator(0)])
+    remaining_portions = models.PositiveIntegerField(validators=[MinValueValidator(0)])
+    storage_location = models.CharField(max_length=7, choices=STORAGE_CHOICES, default="fridge")
+    use_by = models.DateField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(portions_eaten__lte=models.F("yield_portions")), name="prepared_eaten_within_yield"),
+            models.CheckConstraint(condition=models.Q(remaining_portions__lte=models.F("yield_portions") - models.F("portions_eaten")), name="prepared_remaining_within_yield"),
+            models.CheckConstraint(condition=models.Q(remaining_portions=0) | models.Q(use_by__isnull=False), name="prepared_remainder_has_use_by"),
+        ]
 
 
 class NutritionFood(models.Model):

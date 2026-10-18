@@ -12,6 +12,16 @@ For a household of 2, Monday dinner with 4 servings and blank portions eaten bec
 
 This stage adds planner scheduling only. Prepared stock, consumption receipts, and changes to pantry or shopping accounting remain future work.
 
+## Implemented second stage
+
+Recording a cooked meal creates one `PreparedBatch` alongside its `CookingRecord`, in the same transaction as the existing raw pantry deductions. The cooking receipt remains the only source of truth for those deductions. The batch snapshots the recipe title and stores actual yield, portions eaten, remaining portions, fridge/freezer location, and an explicitly entered use-by date.
+
+The cook form prefills portions eaten from the plan, or from household portions capped at the yield for an unplanned recipe. Actual portions eaten may be **0** through the yield. Keeping any portions requires a use-by date on or after the cooking date; there is no default shelf life. With nothing left, a zero-remaining batch is still created and the use-by input is ignored. Planned yield and portions eaten update to the recorded values.
+
+Token retries and duplicate recordings of a planned meal preserve the original receipt and batch. Undo restores raw stock from the receipt and removes the batch; a fresh recording after undo creates a new batch. Existing historical receipts are preserved without inventing their missing portion numbers or storage dates.
+
+History displays the batch's made/eaten/remaining amounts and explicit date. A cooked source's follow-on card changes from **Expected leftovers** to **Leftovers ready**; undo changes it back. Consuming prepared portions and changing shopping accounting remain later stages.
+
 ## Remaining proposal
 
 The agreed policy is to fill **empty matching meal slots only**, leaving existing plans intact. Household portions should be configurable, with a suggested starting default of **2** until the household size is supplied.

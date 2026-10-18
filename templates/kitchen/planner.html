@@ -16,7 +16,7 @@
         <a href="{% url 'recipe_detail' meal.plan.recipe.pk %}"><img src="{{ meal.plan.recipe.image_src }}" alt="{{ meal.plan.recipe.title }}"><h3>{{ meal.plan.recipe.title }}</h3></a>
         {% if meal.plan.leftover_of_id %}
         <a class="planned-history-link" href="{% if meal.plan.source_week != week %}{% url 'planner' %}?week={{ meal.plan.source_week|date:'Y-m-d' }}{% if selected_person %}&amp;person={{ selected_person.pk }}{% endif %}{% endif %}#plan-{{ meal.plan.leftover_of_id }}">Leftovers from {{ meal.plan.leftover_of.date|date:'l' }}'s {{ meal.plan.leftover_of.meal|lower }} · {{ meal.plan.portions_eaten }} portions</a>
-        <span>Expected leftovers</span>
+        <span>{% if meal.plan.leftovers_ready %}Leftovers ready{% else %}Expected leftovers{% endif %}</span>
         {% else %}
         <span>{{ meal.plan.servings }} servings · {{ meal.plan.recipe.total_time }} min</span>
         <span>Eating {{ meal.plan.portions_eaten }}{% if meal.plan.spare_portions %} · {{ meal.plan.spare_portions }} for leftovers{% endif %}</span>

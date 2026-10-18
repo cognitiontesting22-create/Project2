@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 from .forms import IngredientFormSet, MealPlanForm, RecipeForm, SettingsForm, PantryForm, CookForm, NutritionFoodForm, RecipePasteForm
 from .models import KitchenSettings, MealPlan, Recipe, ShoppingCheck, PantryItem, CookingRecord, Ingredient, NutritionFood, NutritionAlias
 from .forms import NutritionProfileFormSet, PersonalPortionForm
-from .models import NutritionProfile, PersonalPortion
+from .models import NutritionProfile, PersonalPortion, PreparedBatch
 from .nutrition import recipe_nutrition, NUTRIENTS, estimate_text
 from .recipe_import import parse_recipe
 from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, quantity_display, shopping_display, parse_quantity, format_quantity
@@ -206,10 +206,13 @@ def planner(request):
     context = week_context(request)
     plans = MealPlan.objects.filter(date__gte=context["week"], date__lte=context["week_end"]).select_related("recipe", "leftover_of")
     cooked = {record.plan_id: record for record in CookingRecord.objects.filter(plan__in=plans, undone_at__isnull=True)}
+    ready_sources = set(PreparedBatch.objects.filter(cooking_record__undone_at__isnull=True,
+        cooking_record__plan_id__in=[plan.leftover_of_id for plan in plans if plan.leftover_of_id]).values_list("cooking_record__plan_id", flat=True))
     for plan in plans:
         plan.cooked_record = cooked.get(plan.pk)
         if plan.leftover_of_id:
             plan.source_week = week_start(plan.leftover_of.date.isoformat())
+            plan.leftovers_ready = plan.leftover_of_id in ready_sources
     slots = {(p.date, p.meal): p for p in plans}
     settings, _ = KitchenSettings.objects.get_or_create(pk=1)
     profiles = NutritionProfile.objects.all()
@@ -481,11 +484,15 @@ def cook_recipe(request, pk):
     except ValueError as error:
         servings = plan.servings if plan else recipe.servings
         messages.error(request, str(error))
-    form = CookForm(request.POST or None, initial={"servings": servings, "cooked_on": timezone.localdate(), "action_token": uuid.uuid4()})
+    profile, _ = KitchenSettings.objects.get_or_create(pk=1)
+    portions_eaten = plan.portions_eaten if plan else min(profile.household_portions, servings)
+    form = CookForm(request.POST or None, initial={"servings": servings, "cooked_on": timezone.localdate(), "action_token": uuid.uuid4(),
+        "portions_eaten": portions_eaten, "storage_location": "fridge"})
     if request.method == "POST":
         if form.is_valid():
             try:
-                record, created = record_cooking(recipe, form.cleaned_data["servings"], form.cleaned_data["cooked_on"], form.cleaned_data["action_token"], form.cleaned_data["notes"], plan)
+                record, created = record_cooking(recipe, form.cleaned_data["servings"], form.cleaned_data["cooked_on"], form.cleaned_data["action_token"], form.cleaned_data["notes"], plan,
+                    portions_eaten=form.cleaned_data["portions_eaten"], storage_location=form.cleaned_data["storage_location"], use_by=form.cleaned_data["use_by"])
             except ValueError as error:
                 messages.error(request, str(error))
             else:
@@ -495,12 +502,11 @@ def cook_recipe(request, pk):
             messages.error(request, "Check the details below before recording this meal.")
         servings = form.cleaned_data.get("servings", servings)
     active_record = CookingRecord.objects.filter(plan=plan, undone_at__isnull=True).first() if plan else None
-    profile, _ = KitchenSettings.objects.get_or_create(pk=1)
     return render(request, "kitchen/cook_recipe.html", {"recipe": recipe, "plan": plan, "form": form, "servings": servings,
         "match": recipe_match(recipe, servings, system=profile.measurement_system), "active_record": active_record, "today": timezone.localdate(), "page": "history", "page_title": "Record a cooked meal"})
 
 def cooking_history(request):
-    records = list(CookingRecord.objects.select_related("recipe", "plan").all())
+    records = list(CookingRecord.objects.select_related("recipe", "plan", "prepared_batch").all())
     for record in records:
         record.deductions_display = [deduction_display(item) for item in record.deductions]
     return render(request, "kitchen/cooking_history.html", {"records": records, "cooked_count": sum(not record.undone_at for record in records), "page": "history", "page_title": "Cooking history"})

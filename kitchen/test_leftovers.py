@@ -235,6 +235,7 @@ class LeftoversMigrationTests(TransactionTestCase):
         old = ("kitchen", "0006_nutritionprofile_kitchensettings_nutrition_mode_and_more")
         new = ("kitchen", "0007_household_portions_and_leftovers")
         executor = MigrationExecutor(connection)
+        latest = executor.loader.graph.leaf_nodes("kitchen")
         executor.migrate([old])
         try:
             apps = executor.loader.project_state([old]).apps
@@ -257,4 +258,4 @@ class LeftoversMigrationTests(TransactionTestCase):
             self.assertEqual(list(rows.values_list("servings", "portions_eaten", "leftover_of_id")), [(1, 1, None), (2, 2, None), (4, 2, None), (6, 2, None)])
             self.assertEqual(apps.get_model("kitchen", "NutritionFood").objects.count(), food_count)
         finally:
-            MigrationExecutor(connection).migrate([new])
+            MigrationExecutor(connection).migrate(latest)

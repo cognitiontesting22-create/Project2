@@ -66,6 +66,10 @@ Weekly lists compare the selected week’s remaining meals with current stock. T
 
 Cooking and undo operations are atomic, and repeated submissions do not deduct or restore stock twice. Receipts retain the original recipe title, servings, and exact stock deductions, even if a recipe or pantry entry is later edited or removed. Undo restores the original deduction; if a stock entry was deleted or renamed, it restores a separate entry for the original ingredient. Cooking receipts are read-only in the Django admin so editing them cannot break inventory accounting.
 
+When recording cooking, enter **Portions eaten at this meal** (0 through the actual servings made), choose fridge or freezer under **Store the rest in**, and supply **Use by** whenever you are keeping portions. The use-by date must be on or after the cooking date; the app never supplies a shelf life. If nothing is left, the date is ignored. Planned portions eaten are prefilled from the meal; unplanned meals use household portions capped at the yield.
+
+Every new cooking receipt has one prepared batch, including meals with nothing left. The batch stores the actual yield, eaten and remaining portions, storage location, explicit date, and recipe-title snapshot. History shows, for example, **Made 4 · ate 2 · 2 left in the fridge · use by 5 Nov 2026**. Token retries and double recording a plan keep the original batch unchanged. Undo removes it while restoring raw stock from the receipt; recording the meal again creates a new batch. Existing historical receipts remain intact without inferred portion or use-by data.
+
 Extra ingredients typed into recipe discovery apply only to that search. Their quantities are unknown, so matches clearly ask you to check amounts. Add measured stock to the pantry for quantity-verified **Ready to cook** results. The pantry starts empty so it reflects what you actually own.
 
 ### Pasting recipes
@@ -104,7 +108,7 @@ Scaling a recipe increases the entire batch's ingredient amounts and nutrient to
 
 With household portions set to 2, planning Monday dinner for 4 servings schedules 2 expected leftover portions for Tuesday dinner if that slot is empty. A 6-serving batch also fills Tuesday only; the other 2 portions stay spare. A 2-serving batch creates no leftover meal. The rule works across week boundaries, never overwrites another plan, and never fills a second day automatically.
 
-Leftover cards link to their source batch and have no cooking action. Remove one to release its portions, or replace it with a fresh recipe. Source edits reconcile expected leftovers, and removing an uncooked source removes its expected follow-on meal. This stage does not change pantry or shopping calculations or add prepared-food inventory. See [the leftovers design](docs/leftovers-design.md) for the implemented first stage and the remaining proposal.
+Leftover cards link to their source batch and have no cooking action. Once the source is recorded, they show **Leftovers ready**; undo returns them to **Expected leftovers**. Remove a card to release its portions, or replace it with a fresh recipe. Source edits reconcile expected leftovers, and removing an uncooked source removes its expected follow-on meal. Prepared batches are stored alongside cooking receipts; consuming them and changing shopping accounting remain future stages. See [the leftovers design](docs/leftovers-design.md) for both implemented stages and the remaining proposal.
 
 Images and fonts are included under `static/`, so the starter experience does not require an external image or font service at runtime. Photos are illustrative. Your own external image URLs still need an internet connection.
 
@@ -140,7 +144,7 @@ The nutrition browser test also uses an isolated kitchen. It checks food entry/e
 
 The recipe-import browser test uses an isolated kitchen to exercise paste/review/cancel/save, editable extracted fields, dynamic ingredient rows, exact scaling, nutrition, planner and shopping integration, correction of an invalid draft, mobile layouts, and the no-JavaScript flow. Backend importer tests cover ambiguous quantities, package sizes, units, missing sections, limits, source preservation, HTML escaping, CSRF, and recipe saving.
 
-The leftovers browser test starts its own temporary seeded kitchen and local server. It checks household portions in Settings, the 4/6/2-serving examples, exact card text and source links, repeated saves, removal, replacement, and edit prefills. Backend tests also cover validation, week boundaries, occupied slots, migration backfills, cooked-plan protections, and personal portions.
+The leftovers browser test starts its own temporary seeded kitchen and local server. It checks household portions in Settings, the 4/6/2-serving examples, exact card text and source links, repeated saves, removal, replacement, and edit prefills. It also checks explicit use-by validation, the prepared-batch receipt, ready status, undo, and recording again. Backend tests additionally cover retries and double recording without extra deductions or batches, zero remaining portions, validation without writes, week boundaries, occupied slots, migration backfills, cooked-plan protections, and personal portions.
 
 ## Project structure
 
