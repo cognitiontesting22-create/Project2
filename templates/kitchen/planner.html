@@ -17,20 +17,27 @@
         {% if meal.plan.leftover_of_id %}
         <a class="planned-history-link" href="{% if meal.plan.source_week != week %}{% url 'planner' %}?week={{ meal.plan.source_week|date:'Y-m-d' }}{% if selected_person %}&amp;person={{ selected_person.pk }}{% endif %}{% endif %}#plan-{{ meal.plan.leftover_of_id }}">Leftovers from {{ meal.plan.leftover_of.date|date:'l' }}'s {{ meal.plan.leftover_of.meal|lower }} · {{ meal.plan.portions_eaten }} portions</a>
         <span>{% if meal.plan.leftovers_ready %}Leftovers ready{% else %}Expected leftovers{% endif %}</span>
+        {% if meal.plan.leftovers_eaten %}
+        <span class="planned-cooked-badge">Eaten</span>
+        {% elif meal.plan.leftovers_ready %}
+        <form action="{% url 'leftover_eat' meal.plan.pk %}" method="post" class="leftover-eat-form">{% csrf_token %}<input type="hidden" name="action_token" value="{{ meal.plan.eat_action_token }}"><button class="text-button" type="submit">I ate this</button></form>
+        {% endif %}
         {% else %}
         <span>{{ meal.plan.servings }} servings · {{ meal.plan.recipe.total_time }} min</span>
         <span>Eating {{ meal.plan.portions_eaten }}{% if meal.plan.spare_portions %} · {{ meal.plan.spare_portions }} for leftovers{% endif %}</span>
+        <span class="portion-accounting">{{ meal.plan.accounting.remaining_portions }} remaining · {{ meal.plan.accounting.reserved_portions }} reserved · {{ meal.plan.accounting.unassigned_portions }} unassigned</span>
         {% if meal.plan.cooked_record %}
         <span class="planned-cooked-badge">{% include 'kitchen/icon.html' with name='check' %}Cooked</span><a class="planned-history-link" href="{% url 'cooking_history' %}#cooking-{{ meal.plan.cooked_record.pk }}">View record</a>
         {% else %}
         <a class="planned-cook-link" href="{% url 'cook_recipe' meal.plan.recipe.pk %}?plan={{ meal.plan.pk }}">{% include 'kitchen/icon.html' with name='chef' %}I cooked this</a>
         {% endif %}
         {% endif %}
-        {% if meal.plan.leftover_of_id or not meal.plan.cooked_record %}
+        {% if not meal.plan.leftovers_eaten %}{% if meal.plan.leftover_of_id or not meal.plan.cooked_record %}
         <div class="planned-meal-actions">
           <button class="icon-button" data-open-dialog="plan-dialog" data-date="{{ day.date|date:'Y-m-d' }}" data-meal="{{ meal.name }}" data-recipe="{{ meal.plan.recipe.pk }}" data-servings="{{ meal.plan.servings }}" data-portions-eaten="{{ meal.plan.portions_eaten }}" aria-label="Change {{ day.date|date:'l' }} {{ meal.name }}">{% include 'kitchen/icon.html' with name='edit' %}</button>
           <form action="{% url 'plan_remove' meal.plan.pk %}" method="post">{% csrf_token %}<button class="icon-button" type="submit" aria-label="Remove {{ day.date|date:'l' }} {{ meal.name }}">{% include 'kitchen/icon.html' with name='close' %}</button></form>
         </div>
+        {% endif %}
         {% endif %}
         {% if selected_person %}
         <form method="post" action="{% url 'personal_portion_save' meal.plan.pk selected_person.pk %}">{% csrf_token %}<label class="field">{{ selected_person.name }}'s portions<input type="number" name="servings" min="0" max="1000" step="0.01" value="{{ meal.personal_portion|default_if_none:'' }}" placeholder="Not assigned" required></label><button class="button button-small button-outline">Save portion</button></form>

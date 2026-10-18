@@ -58,7 +58,7 @@ class ShoppingMeasurementsTests(TestCase):
         recipe = Recipe.objects.create(title=f"Recipe {index}", description="Test recipe", instructions="Cook.", servings=base_servings, measurement_system=system)
         for name, amount, unit in ingredients:
             Ingredient.objects.create(recipe=recipe, name=name, quantity=str(parse_quantity(amount)), unit=unit)
-        MealPlan.objects.create(recipe=recipe, date=self.start + timedelta(days=offset), meal=["Breakfast", "Lunch", "Dinner"][index % 3], servings=servings)
+        MealPlan.objects.create(recipe=recipe, date=self.start + timedelta(days=offset), meal=["Breakfast", "Lunch", "Dinner"][index % 3], servings=servings, portions_eaten=min(2, servings))
         return recipe
 
     def test_grams_and_kilograms_merge_after_serving_scaling(self):

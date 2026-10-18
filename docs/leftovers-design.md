@@ -20,7 +20,17 @@ The cook form prefills portions eaten from the plan, or from household portions 
 
 Token retries and duplicate recordings of a planned meal preserve the original receipt and batch. Undo restores raw stock from the receipt and removes the batch; a fresh recording after undo creates a new batch. Existing historical receipts are preserved without inventing their missing portion numbers or storage dates.
 
-History displays the batch's made/eaten/remaining amounts and explicit date. A cooked source's follow-on card changes from **Expected leftovers** to **Leftovers ready**; undo changes it back. Consuming prepared portions and changing shopping accounting remain later stages.
+History displays the batch's made/eaten/remaining amounts and explicit date. A cooked source's follow-on card changes from **Expected leftovers** to **Leftovers ready**; undo changes it back.
+
+## Implemented third stage
+
+Both the uncooked source plan and its prepared batch store `reserved_portions` explicitly. Remaining is physical stock (or planned servings minus portions eaten before cooking); reserved is promised to uneaten leftover planner meals; unassigned is remaining minus reserved. Reservations never exceed remaining, and all three counts stay nonnegative. Actual cooking must leave enough portions for existing reservations or it is refused without recording or deducting anything.
+
+**I ate this** records a `LeftoverMeal` with its batch, planner meal, portions, local date, unique action token and undo time. It atomically reduces remaining and reserved under `lock_kitchen`, without touching pantry stock or the cooking receipt. The card shows **Eaten**. Retrying the same token or recording an already eaten meal changes nothing. Undone records keep their tokens even after their former batch or planner meal is removed.
+
+History shows each active consumption separately with **Undo**. Undo returns its portions to both remaining and reserved for the same planner meal. Cooking undo is refused until all consumptions from its batch have been undone. It then removes the batch and restores stock as before, leaving the expected reservations on the source plan. An eaten planner meal cannot be removed or replaced; an uneaten one releases its reservation when removed or replaced.
+
+For yield 4 with 2 eaten and Tuesday reserving 2, the source shows **2 remaining · 2 reserved · 0 unassigned**, then all zero after eating Tuesday's meal. Yield 6 starts at **4 remaining · 2 reserved · 2 unassigned** and becomes **2 remaining · 0 reserved · 2 unassigned**. Removing Tuesday's uneaten meal changes only reserved and unassigned. Shopping accounting remains a later stage.
 
 ## Remaining proposal
 

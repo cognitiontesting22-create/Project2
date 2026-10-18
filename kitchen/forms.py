@@ -123,6 +123,10 @@ class PantryForm(forms.ModelForm):
     def clean_name(self):
         return " ".join(self.cleaned_data["name"].split())
 
+class LeftoverEatForm(forms.Form):
+    action_token = forms.UUIDField(widget=forms.HiddenInput)
+
+
 class CookForm(forms.Form):
     servings = forms.IntegerField(min_value=1, max_value=MAX_SERVINGS, widget=forms.HiddenInput())
     action_token = forms.UUIDField(widget=forms.HiddenInput())

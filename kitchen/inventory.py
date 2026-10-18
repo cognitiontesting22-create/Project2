@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, shopping_display, quantity_display
-from .models import CookingRecord, KitchenSettings, MealPlan, PantryItem, PreparedBatch, Recipe
+from .models import CookingRecord, KitchenSettings, LeftoverMeal, MealPlan, PantryItem, PreparedBatch, Recipe
 
 def lock_kitchen():
     # Start with a write: SQLite then serializes every read/modify/write stock action.
@@ -104,6 +104,9 @@ def record_cooking(recipe, servings, cooked_on, action_token, notes="", plan=Non
     if storage_location not in dict(PreparedBatch.STORAGE_CHOICES):
         raise ValueError("Choose fridge or freezer for the portions you are keeping.")
     remaining_portions = servings - portions_eaten
+    reserved_portions = plan.reserved_portions if plan else 0
+    if remaining_portions < reserved_portions:
+        raise ValueError("These portions are reserved for leftover meals. Change those plans before recording a smaller batch.")
     if remaining_portions:
         if use_by is None:
             raise ValueError("Choose a use by date for the portions you are keeping.")
@@ -140,7 +143,8 @@ def record_cooking(recipe, servings, cooked_on, action_token, notes="", plan=Non
     record = CookingRecord.objects.create(recipe=recipe, recipe_title=recipe.title, image_snapshot=recipe.image_src, plan=plan, servings=servings,
         cooked_on=cooked_on, action_token=action_token, notes=notes, deductions=deductions, shortages=shortages)
     PreparedBatch.objects.create(cooking_record=record, recipe_title=record.recipe_title, yield_portions=servings,
-        portions_eaten=portions_eaten, remaining_portions=remaining_portions, storage_location=storage_location, use_by=use_by)
+        portions_eaten=portions_eaten, remaining_portions=remaining_portions, reserved_portions=reserved_portions,
+        storage_location=storage_location, use_by=use_by)
     if plan:
         plan.servings = servings
         plan.portions_eaten = portions_eaten
@@ -153,6 +157,8 @@ def undo_cooking(record):
     record.refresh_from_db()
     if record.undone_at:
         return False
+    if LeftoverMeal.objects.filter(batch__cooking_record=record, undone_at__isnull=True).exists():
+        raise ValueError("Undo the leftover meals eaten from this batch first.")
     for deduction in record.deductions:
         item = PantryItem.objects.filter(pk=deduction["pantry_item_id"]).first()
         original_key = item_key(deduction["name"], deduction["unit"], deduction["measurement_system"])
@@ -165,6 +171,77 @@ def undo_cooking(record):
     record.undone_at = timezone.now()
     record.save(update_fields=["undone_at"])
     PreparedBatch.objects.filter(cooking_record=record).delete()
+    return True
+
+
+def change_reservation(source, portions):
+    """Caller holds lock_kitchen inside an atomic transaction, including plan changes.
+
+    The plan mirrors the batch's reservation so cooking undo leaves its promise intact.
+    """
+    source.refresh_from_db()
+    batch = PreparedBatch.objects.filter(cooking_record__plan=source, cooking_record__undone_at__isnull=True).first()
+    remaining = batch.remaining_portions if batch else source.remaining_portions
+    reserved = source.reserved_portions + portions
+    if not 0 <= reserved <= remaining:
+        raise ValueError("There aren't enough unassigned portions for this leftover meal.")
+    source.reserved_portions = reserved
+    source.save(update_fields=["reserved_portions"])
+    if batch:
+        batch.reserved_portions = reserved
+        batch.save(update_fields=["reserved_portions"])
+
+
+def release_leftover_reservation(plan):
+    """Release an uneaten planner promise before removal/replacement, under the lock."""
+    if plan.leftover_of_id:
+        change_reservation(plan.leftover_of, -plan.portions_eaten)
+
+
+def source_meal_label(source):
+    return f"{source.date:%A}'s {source.meal.lower()}"
+
+
+@transaction.atomic
+def eat_leftovers(plan, action_token):
+    lock_kitchen()
+    plan.refresh_from_db()
+    if not plan.leftover_of_id:
+        raise ValueError("Choose a leftover meal to record.")
+    existing = LeftoverMeal.objects.filter(action_token=action_token).first()
+    if not existing:
+        existing = LeftoverMeal.objects.filter(plan=plan, undone_at__isnull=True).first()
+    if existing:
+        return existing, False
+    batch = PreparedBatch.objects.filter(cooking_record__plan_id=plan.leftover_of_id,
+        cooking_record__undone_at__isnull=True).first()
+    if not batch:
+        raise ValueError(f"Cook {source_meal_label(plan.leftover_of)} first, these are still expected leftovers.")
+    portions = plan.portions_eaten
+    if portions < 1 or portions > batch.reserved_portions or portions > batch.remaining_portions:
+        raise ValueError("There aren't enough reserved portions for this leftover meal.")
+    record = LeftoverMeal.objects.create(batch=batch, plan=plan, portions=portions,
+        eaten_on=timezone.localdate(), action_token=action_token)
+    batch.remaining_portions -= portions
+    batch.reserved_portions -= portions
+    batch.save(update_fields=["remaining_portions", "reserved_portions"])
+    MealPlan.objects.filter(pk=plan.leftover_of_id).update(reserved_portions=batch.reserved_portions)
+    return record, True
+
+
+@transaction.atomic
+def undo_leftovers(record):
+    lock_kitchen()
+    record.refresh_from_db()
+    if record.undone_at:
+        return False
+    batch = record.batch
+    batch.remaining_portions += record.portions
+    batch.reserved_portions += record.portions
+    batch.save(update_fields=["remaining_portions", "reserved_portions"])
+    MealPlan.objects.filter(pk=record.plan.leftover_of_id).update(reserved_portions=batch.reserved_portions)
+    record.undone_at = timezone.now()
+    record.save(update_fields=["undone_at"])
     return True
 
 def deduction_display(deduction):

@@ -57,3 +57,12 @@
 .nutrition-profiles fieldset{border:1px solid var(--line);border-radius:8px;margin:20px 0;padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px}
 .nutrition-profiles fieldset p{display:flex;flex-direction:column;gap:8px}
 .nutrition-profiles input{width:100%;padding:10px;border:1px solid var(--line);border-radius:5px;background:#fffefb}
+
+/* Leave room for the batch balance and leftover eating action. */
+.meal-slot{height:235px}
+.meal-label-column>div:not(.day-label-spacer){height:244px}
+.planned-meal>.portion-accounting{white-space:normal}
+.leftover-eat-form{margin:6px 2px}
+.leftover-eat-form .text-button{font-size:10px;color:var(--green)}
+.leftover-history-card{grid-template-columns:1fr}
+.leftover-history-card h2{font-size:23px;margin:8px 0 18px}
