@@ -156,6 +156,64 @@ def exercise(base, recipe_id, other_id):
             browser.close()
 
 
+def exercise_shopping_nutrition(base, recipe_id, food_id):
+    """Exercise the rice and calorie examples through the actual forms."""
+    errors = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(channel="chrome", headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 1100})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            week = "2026-11-16"
+            page.goto(base + "/planner/?week=" + week)
+            page.get_by_role("button", name="Plan Monday Dinner", exact=True).click()
+            page.locator("#plan-recipe").select_option(str(recipe_id))
+            page.locator("#plan-servings").fill("4")
+            page.locator("#plan-form button[type=submit]").click()
+            source_id = page.locator(".planned-meal").nth(0).get_attribute("id")
+            leftover_id = page.locator(".planned-meal").nth(1).get_attribute("id")
+            expect(page.locator(f"#{leftover_id}")).to_contain_text("130 kcal per portion")
+            page.locator(f"#{leftover_id} input[name=servings]").fill("1")
+            page.locator(f"#{leftover_id}").get_by_role("button", name="Save portion", exact=True).click()
+            page.goto(base + "/shopping/?week=" + week)
+            expect(page.locator(".shopping-item")).to_have_count(1)
+            expect(page.locator(".shopping-quantity")).to_have_text("400 g")
+            expect(page.locator(".shopping-aside")).to_contain_text("Ingredients from your 1 uncooked meal")
+            exported = page.request.get(base + "/shopping/export/?week=" + week)
+            assert exported.text().splitlines() == ["Savor shopping list · 16 November 2026", "", "[ ] 400 g Rice"]
+            page.screenshot(path=str(ARTIFACTS / "leftovers-shopping-rice.png"), full_page=True)
+            page.goto(base + "/planner/?week=" + week)
+            page.locator(f"#{source_id} .planned-cook-link").click()
+            page.get_by_label("Use by", exact=True).fill("2026-11-05")
+            page.get_by_role("button", name="Record meal & update pantry", exact=True).click()
+            page.goto(base + "/shopping/?week=" + week)
+            expect(page.locator(".shopping-item")).to_have_count(0)
+            page.goto(base + f"/nutrition/foods/{food_id}/edit/")
+            page.locator("#id_calories").fill("200")
+            page.get_by_role("button", name="Save food nutrition", exact=True).click()
+            page.goto(base + f"/recipes/{recipe_id}/")
+            expect(page.locator('[data-nutrient="calories"]')).to_have_text("200")
+            page.goto(base + "/planner/?week=" + week)
+            expect(page.locator(f"#{leftover_id}")).to_contain_text("130 kcal per portion")
+            expect(page.locator(".planner-day").nth(1).locator(".personal-daily-total")).to_contain_text("Calories: 130 kcal")
+            def check_controls_fit():
+                card = page.locator(f"#{leftover_id}")
+                save = card.get_by_role("button", name="Save portion", exact=True).bounding_box()
+                actions = card.locator(".planned-meal-actions").bounding_box()
+                assert (save["y"] + save["height"] <= actions["y"] or
+                        save["x"] + save["width"] <= actions["x"]), (save, actions)
+            check_controls_fit()
+            page.screenshot(path=str(ARTIFACTS / "leftovers-nutrition-snapshot.png"), full_page=True)
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.reload()
+            expect(page.locator(f"#{leftover_id}")).to_contain_text("130 kcal per portion")
+            check_controls_fit()
+            page.screenshot(path=str(ARTIFACTS / "leftovers-nutrition-mobile.png"), full_page=True)
+            assert not errors, errors
+        finally:
+            browser.close()
+
+
 def run():
     ARTIFACTS.mkdir(exist_ok=True)
     with TemporaryDirectory(prefix="leftovers-check-") as folder:
@@ -165,7 +223,7 @@ def run():
         django.setup()
         from django.core.management import call_command
         from django.db import connections
-        from kitchen.models import Recipe
+        from kitchen.models import Ingredient, NutritionAlias, NutritionFood, NutritionProfile, Recipe
         call_command("migrate", verbosity=0)
         call_command("seed_demo", recipes_only=True, verbosity=0)
         recipe, other = list(Recipe.objects.order_by("pk")[:2])
@@ -202,11 +260,17 @@ with patch('django.utils.timezone.localdate', return_value=date(2026, 11, 2)):
                 else:
                     raise RuntimeError("Temporary server did not start")
                 exercise(base, recipe.pk, other.pk)
+                rice_food = NutritionFood.objects.create(name="Browser snapshot rice", calories=130, protein=3, carbs=28, fat=0)
+                NutritionAlias.objects.update_or_create(name="rice", defaults={"food": rice_food})
+                rice = Recipe.objects.create(title="Snapshot rice dinner", servings=2, instructions="Cook.", photo="curry.jpg")
+                Ingredient.objects.create(recipe=rice, name="Rice", quantity="200", unit="g")
+                NutritionProfile.objects.create(name="Alex", calories=2000, protein=100)
+                exercise_shopping_nutrition(base, rice.pk, rice_food.pk)
             finally:
                 server.terminate()
                 server.wait(timeout=10)
                 connections.close_all()
-    print("PASS: household Settings, 4/6/2-serving plans, exact leftover cards, retries, removal, replacement, explicit use-by validation, prepared batches, eating, reservation balances for yields 4 and 6, leftover undo before cooking undo, recording again, and desktop/mobile UI; temporary database removed.")
+    print("PASS: household Settings, 4/6/2-serving plans, exact leftover cards, retries, removal, replacement, explicit use-by validation, prepared batches, eating, reservation balances for yields 4 and 6, leftover undo before cooking undo, recording again, rice shopping/export, frozen nutrition after table edits, personal totals, and desktop/mobile UI; temporary database removed.")
 
 
 if __name__ == "__main__":

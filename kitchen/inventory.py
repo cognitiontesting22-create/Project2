@@ -6,6 +6,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 from .measurements import MAX_SERVINGS, normalize_name, resolve_unit, shopping_display, quantity_display
 from .models import CookingRecord, KitchenSettings, LeftoverMeal, MealPlan, PantryItem, PreparedBatch, Recipe
+from .nutrition import nutrition_snapshot
 
 def lock_kitchen():
     # Start with a write: SQLite then serializes every read/modify/write stock action.
@@ -144,7 +145,7 @@ def record_cooking(recipe, servings, cooked_on, action_token, notes="", plan=Non
         cooked_on=cooked_on, action_token=action_token, notes=notes, deductions=deductions, shortages=shortages)
     PreparedBatch.objects.create(cooking_record=record, recipe_title=record.recipe_title, yield_portions=servings,
         portions_eaten=portions_eaten, remaining_portions=remaining_portions, reserved_portions=reserved_portions,
-        storage_location=storage_location, use_by=use_by)
+        storage_location=storage_location, use_by=use_by, nutrition_snapshot=nutrition_snapshot(recipe, servings))
     if plan:
         plan.servings = servings
         plan.portions_eaten = portions_eaten

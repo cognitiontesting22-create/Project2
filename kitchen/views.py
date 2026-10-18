@@ -224,7 +224,10 @@ def planner(request):
         plan.accounting = batches.get(plan.pk, plan)
         if plan.leftover_of_id:
             plan.source_week = week_start(plan.leftover_of.date.isoformat())
-            plan.leftovers_ready = plan.leftover_of_id in batches
+            source_batch = batches.get(plan.leftover_of_id)
+            plan.leftovers_ready = source_batch is not None
+            plan.leftover_nutrition = source_batch.nutrition_snapshot if source_batch else recipe_nutrition(plan.recipe, plan.servings)
+            plan.leftover_calories = estimate_text(plan.leftover_nutrition["per_serving"]["calories"], 0)
             plan.leftovers_eaten = plan.pk in eaten
             plan.eat_action_token = uuid.uuid4()
     slots = {(p.date, p.meal): p for p in plans}
@@ -256,7 +259,7 @@ def planner(request):
             assigned = True
             if portion == 0:
                 continue
-            nutrition = recipe_nutrition(plan.recipe, plan.servings)
+            nutrition = plan.leftover_nutrition if plan.leftover_of_id else recipe_nutrition(plan.recipe, plan.servings)
             complete = complete and nutrition["complete"]
             available = available or nutrition["available"]
             for key in totals:
@@ -373,7 +376,7 @@ def shopping_key(name, dimension):
 
 def shopping_requirements(start):
     active_cooking = CookingRecord.objects.filter(plan_id=OuterRef("pk"), undone_at__isnull=True)
-    plans = MealPlan.objects.filter(date__gte=start, date__lte=start + timedelta(days=6)).annotate(cooked=Exists(active_cooking)).filter(cooked=False).select_related("recipe").prefetch_related("recipe__ingredients")
+    plans = MealPlan.objects.filter(date__gte=start, date__lte=start + timedelta(days=6), leftover_of__isnull=True).annotate(cooked=Exists(active_cooking)).filter(cooked=False).select_related("recipe").prefetch_related("recipe__ingredients")
     grouped = {}
     profile, _ = KitchenSettings.objects.get_or_create(pk=1)
     for plan in plans:

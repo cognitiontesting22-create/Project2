@@ -158,6 +158,11 @@ class CookingRecord(models.Model):
         return f"{self.recipe_title} · {self.cooked_on}"
 
 
+def empty_nutrition_snapshot():
+    # Older batches have no cooking-time estimate; never infer one from today's recipe.
+    return {"per_serving": dict.fromkeys(["calories", "protein", "carbs", "fat"]), "complete": False, "available": False}
+
+
 class PreparedBatch(models.Model):
     STORAGE_CHOICES = [("fridge", "Fridge"), ("freezer", "Freezer")]
     cooking_record = models.OneToOneField(CookingRecord, related_name="prepared_batch", on_delete=models.CASCADE)
@@ -168,6 +173,7 @@ class PreparedBatch(models.Model):
     reserved_portions = models.PositiveIntegerField(default=0)
     storage_location = models.CharField(max_length=7, choices=STORAGE_CHOICES, default="fridge")
     use_by = models.DateField(null=True, blank=True)
+    nutrition_snapshot = models.JSONField(default=empty_nutrition_snapshot)
 
     @property
     def unassigned_portions(self):

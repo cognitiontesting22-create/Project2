@@ -7,6 +7,12 @@ from .models import NutritionAlias
 NUTRIENTS = [("calories", "Calories", "kcal"), ("protein", "Protein", "g"), ("carbs", "Carbs", "g"), ("fat", "Fat", "g")]
 
 
+def nutrition_snapshot(recipe, servings):
+    """Only exact per-portion values and estimate status belong on the cooked batch."""
+    estimate = recipe_nutrition(recipe, servings)
+    return {key: estimate[key] for key in ("per_serving", "complete", "available")}
+
+
 def estimate_text(amount, places=1):
     if amount is None:
         return "—"

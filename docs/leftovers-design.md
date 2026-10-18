@@ -30,7 +30,15 @@ Both the uncooked source plan and its prepared batch store `reserved_portions` e
 
 History shows each active consumption separately with **Undo**. Undo returns its portions to both remaining and reserved for the same planner meal. Cooking undo is refused until all consumptions from its batch have been undone. It then removes the batch and restores stock as before, leaving the expected reservations on the source plan. An eaten planner meal cannot be removed or replaced; an uneaten one releases its reservation when removed or replaced.
 
-For yield 4 with 2 eaten and Tuesday reserving 2, the source shows **2 remaining · 2 reserved · 0 unassigned**, then all zero after eating Tuesday's meal. Yield 6 starts at **4 remaining · 2 reserved · 2 unassigned** and becomes **2 remaining · 0 reserved · 2 unassigned**. Removing Tuesday's uneaten meal changes only reserved and unassigned. Shopping accounting remains a later stage.
+For yield 4 with 2 eaten and Tuesday reserving 2, the source shows **2 remaining · 2 reserved · 0 unassigned**, then all zero after eating Tuesday's meal. Yield 6 starts at **4 remaining · 2 reserved · 2 unassigned** and becomes **2 remaining · 0 reserved · 2 unassigned**. Removing Tuesday's uneaten meal changes only reserved and unassigned.
+
+## Implemented fourth stage
+
+Shopping requirements include only uncooked cooking batches (`leftover_of` is empty). Leftover meals add no ingredients, planned-meal count, or recipe titles. Page, export, checkbox validation, and checked-item restocking all use that same calculation. A 2-serving recipe with 200 g rice, planned at 4 servings plus next-day leftovers, requires **400 g rice once**. A week containing only the follow-on leftover meal has no requirement from it. Recording the cooking batch removes its requirements as before; conversions, merging, and pantry subtraction are unchanged.
+
+Each new prepared batch snapshots exact per-portion calories, protein, carbs, and fat from `recipe_nutrition` at its actual cooking yield, together with availability and complete/partial status. Fractions are stored as exact strings, and unavailable nutrients as missing values. Food-table edits/deletions and recipe ingredient/base-yield edits never recalculate the snapshot. Undo deletes it with the batch; recording again takes a fresh snapshot. Existing batches receive missing estimates rather than reconstructed historical numbers.
+
+Cooked leftovers show the snapshot's calories rounded through `estimate_text`, or a dash if missing, with **Partial estimate** for incomplete snapshots. Expected leftovers show live recipe estimates. Personal planned nutrition uses snapshots for cooked-source leftovers and live estimates for all other meals. For example, a cooked 4-serving batch from 400 g at 130 kcal per 100 g keeps **130 kcal per portion** on its leftover card and a 1-portion personal total after the food is edited to 200; the recipe page shows the live **200 kcal per serving**. Personal portions retain the existing cap and validation message.
 
 ## Remaining proposal
 
