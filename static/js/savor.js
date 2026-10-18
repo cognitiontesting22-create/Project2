@@ -74,6 +74,7 @@
       if (button.dataset.meal) $('#plan-meal').value = button.dataset.meal;
       const servings = button.dataset.servings || $('#plan-recipe').selectedOptions[0]?.dataset.servings || 2;
       $('#plan-servings').value = servings;
+      $('#plan-portions-eaten').value = button.dataset.portionsEaten || '';
     }
     dialog.showModal();
   }));

@@ -58,7 +58,7 @@ class ShoppingMeasurementsTests(TestCase):
         recipe = Recipe.objects.create(title=f"Recipe {index}", description="Test recipe", instructions="Cook.", servings=base_servings, measurement_system=system)
         for name, amount, unit in ingredients:
             Ingredient.objects.create(recipe=recipe, name=name, quantity=str(parse_quantity(amount)), unit=unit)
-        MealPlan.objects.create(recipe=recipe, date=self.start + timedelta(days=offset), meal=["Breakfast", "Lunch", "Dinner"][index % 3], servings=servings)
+        MealPlan.objects.create(recipe=recipe, date=self.start + timedelta(days=offset), meal=["Breakfast", "Lunch", "Dinner"][index % 3], servings=servings, portions_eaten=min(2, servings))
         return recipe
 
     def test_grams_and_kilograms_merge_after_serving_scaling(self):
@@ -154,7 +154,7 @@ class ShoppingMeasurementsTests(TestCase):
         self.assertContains(detail, "8⅓")
         self.assertEqual(detail.context["servings"], 50)
         self.client.post(reverse("plan_add"), {"recipe": recipe.pk, "date": self.start.isoformat(), "meal": "Dinner", "servings": 100})
-        self.assertEqual(MealPlan.objects.get(meal="Dinner").servings, 100)
+        self.assertEqual(MealPlan.objects.get(date=self.start, meal="Dinner").servings, 100)
 
     def test_scale_rejects_invalid_servings(self):
         recipe = self.plan([("flour", "1", "g")])

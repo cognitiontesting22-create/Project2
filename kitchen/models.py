@@ -73,10 +73,34 @@ class MealPlan(models.Model):
     date = models.DateField()
     meal = models.CharField(max_length=15, choices=MEAL_CHOICES, default="Dinner")
     servings = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1)])
+    portions_eaten = models.PositiveIntegerField(default=2, validators=[MinValueValidator(0)])
+    reserved_portions = models.PositiveIntegerField(default=0)
+    allocated_portions = models.PositiveIntegerField(default=0)
+    leftover_of = models.ForeignKey("self", null=True, blank=True, related_name="leftover_meals", on_delete=models.CASCADE)
+
+    @property
+    def spare_portions(self):
+        return self.servings - self.portions_eaten
+
+    @property
+    def remaining_portions(self):
+        return self.spare_portions
+
+    @property
+    def unassigned_portions(self):
+        return self.remaining_portions - self.reserved_portions
+
+    @property
+    def shortfall_portions(self):
+        return self.portions_eaten - self.allocated_portions if self.leftover_of_id else 0
 
     class Meta:
         ordering = ["date", "meal"]
-        constraints = [models.UniqueConstraint(fields=["date", "meal"], name="one_recipe_per_meal_slot")]
+        constraints = [
+            models.UniqueConstraint(fields=["date", "meal"], name="one_recipe_per_meal_slot"),
+            models.CheckConstraint(condition=models.Q(reserved_portions__lte=models.F("servings") - models.F("portions_eaten")), name="planned_reservations_within_remaining"),
+            models.CheckConstraint(condition=models.Q(allocated_portions__lte=models.F("portions_eaten")), name="leftover_allocation_within_portions"),
+        ]
 
 class ShoppingCheck(models.Model):
     week = models.DateField()
@@ -90,6 +114,7 @@ class KitchenSettings(models.Model):
     nutrition_mode = models.CharField(max_length=10, choices=[("personal", "Just me"), ("household", "Household")], default="personal")
     name = models.CharField(max_length=50, default="Alex")
     kitchen_name = models.CharField(max_length=60, default="My little kitchen")
+    household_portions = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1), MaxValueValidator(20)])
     measurement_system = models.CharField(max_length=10, choices=MEASUREMENT_SYSTEMS, default="us")
 
 class PantryItem(models.Model):
@@ -137,6 +162,56 @@ class CookingRecord(models.Model):
 
     def __str__(self):
         return f"{self.recipe_title} · {self.cooked_on}"
+
+
+def empty_nutrition_snapshot():
+    # Older batches have no cooking-time estimate; never infer one from today's recipe.
+    return {"per_serving": dict.fromkeys(["calories", "protein", "carbs", "fat"]), "complete": False, "available": False}
+
+
+class PreparedBatch(models.Model):
+    STORAGE_CHOICES = [("fridge", "Fridge"), ("freezer", "Freezer")]
+    cooking_record = models.OneToOneField(CookingRecord, related_name="prepared_batch", on_delete=models.CASCADE)
+    recipe_title = models.CharField(max_length=120)
+    yield_portions = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    portions_eaten = models.PositiveIntegerField(validators=[MinValueValidator(0)])
+    remaining_portions = models.PositiveIntegerField(validators=[MinValueValidator(0)])
+    reserved_portions = models.PositiveIntegerField(default=0)
+    storage_location = models.CharField(max_length=7, choices=STORAGE_CHOICES, default="fridge")
+    use_by = models.DateField(null=True, blank=True)
+    nutrition_snapshot = models.JSONField(default=empty_nutrition_snapshot)
+    planned_servings = models.PositiveIntegerField(null=True, blank=True)
+    planned_portions_eaten = models.PositiveIntegerField(null=True, blank=True)
+
+    @property
+    def unassigned_portions(self):
+        return self.remaining_portions - self.reserved_portions
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(reserved_portions__lte=models.F("remaining_portions")), name="prepared_reservations_within_remaining"),
+            models.CheckConstraint(condition=models.Q(portions_eaten__lte=models.F("yield_portions")), name="prepared_eaten_within_yield"),
+            models.CheckConstraint(condition=models.Q(remaining_portions__lte=models.F("yield_portions") - models.F("portions_eaten")), name="prepared_remaining_within_yield"),
+            models.CheckConstraint(condition=models.Q(remaining_portions=0) | models.Q(use_by__isnull=False), name="prepared_remainder_has_use_by"),
+        ]
+
+
+class LeftoverMeal(models.Model):
+    # Keep retry tokens after an undone batch or planner meal is removed.
+    batch = models.ForeignKey(PreparedBatch, null=True, blank=True, on_delete=models.SET_NULL, related_name="leftover_meals")
+    plan = models.ForeignKey(MealPlan, null=True, blank=True, on_delete=models.SET_NULL, related_name="leftover_records")
+    portions = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    eaten_on = models.DateField(default=timezone.localdate)
+    action_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    undone_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-eaten_on", "-pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["plan"], condition=models.Q(undone_at__isnull=True, plan__isnull=False), name="one_active_leftover_meal_per_plan"),
+            models.CheckConstraint(condition=models.Q(portions__gte=1), name="leftover_meal_positive_portions"),
+            models.CheckConstraint(condition=models.Q(undone_at__isnull=False) | models.Q(batch__isnull=False, plan__isnull=False), name="active_leftover_has_batch_and_plan"),
+        ]
 
 
 class NutritionFood(models.Model):

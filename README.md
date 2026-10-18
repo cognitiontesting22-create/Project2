@@ -33,15 +33,19 @@ To start with your own collection, run migrations and skip `seed_demo`. Use `see
 - Search recipe names, descriptions, and ingredients. Filter vegetarian, quick, high-protein, sweet, and seasonal recipes; sort by date, name, or cooking time.
 - Save favorites and switch between grid and list views. Press **⌘ K** or **Ctrl K** to focus recipe search.
 - Type any positive whole serving count or use the +/− controls. Ingredients update as kitchen fractions such as **1½ cups**, **⅓ cup**, and **¾ tsp**, and the chosen count carries into the meal planner.
-- Plan breakfast, lunch, and dinner across any week. Choose servings for each meal, replace a filled slot, or remove it.
+- Set **Household portions** in Settings, then plan cooking servings separately from portions eaten. When the spare portions feed the household, Savor fills the next day's empty matching meal slot with **Expected leftovers**. It never fills further ahead automatically.
+- Record the batch to make those leftovers **Leftovers ready**, then use **I ate this** to consume prepared portions without deducting ingredients again. Undo eating restores the portions; undo cooking restores the pantry after the leftover meals are undone.
+- Schedule unassigned portions into an empty later slot, and see **Short by** when changes to a source plan or a smaller cooking yield leave a leftover meal short. Existing meals keep their place.
 - Generate a weekly shopping list that merges matching ingredients across recipes, scales each meal’s servings, and converts compatible units. For example, **500 g + ½ kg → 1 kg** and **1 US cup + 8 US tbsp → 1½ cups**. Checkboxes persist, and downloads and printouts use the same readable quantities.
 - Keep a pantry with exact amounts, pantry/fridge/freezer locations, optional use-by dates, search, and filters for stock, items to use soon, and empty entries. Adding the same stock lot tops it up; editing sets the actual quantity left.
-- Shop for only the shortages: pantry stock is subtracted once from the combined requirements of the week’s uncooked meals. Fully covered ingredients appear separately. **Add checked items to pantry** records the exact listed purchase amounts and updates the list immediately.
+- Shop for only the shortages: pantry stock is subtracted once from the week's uncooked cooking batches. Leftover meals add no ingredients. Fully covered ingredients appear separately. **Add checked items to pantry** records the exact listed purchase amounts and updates the list immediately.
 - Use **I cooked this** on a recipe or planned meal to review amounts and record your servings, cooking date, and notes. Stock is deducted automatically, and the cooking history keeps a receipt. **Undo & restore pantry** reverses a mistaken record exactly.
 - Find meals in **Cook with my pantry**, ranked by how few ingredients are missing for your chosen serving count. Partial stock counts as missing; ready-to-cook recipes have enough of every measured ingredient. Add comma-separated ingredients for a quick search, filter to recipes with all ingredients, or choose **Fewest missing** in the recipe box.
 - Enter ingredient quantities as **1½**, **1 1/2**, **1/3**, or decimals. Fractions are stored and calculated exactly, without rounding intermediate quantities.
-- Personalize your name and kitchen name in Settings.
+- Personalize your name, kitchen name, and household portions (1–20, default 2) in Settings.
 - See estimated calories, protein, carbohydrates, and fat per serving or for the whole batch. Nutrition recalculates from the local table when servings, ingredients, or food values change.
+- Keep cooked leftovers' nutrition steady with a snapshot taken when the batch is recorded. Their cards and personal planned totals use that snapshot while recipes keep their live estimates.
+- See **Prepared food** beside the pantry, ordered by earliest use by, fridge before freezer, then cooked earlier. **Freeze** or **Unfreeze** a batch with a use-by date you enter, and see **After use by** on planned leftovers that conflict with it.
 - Browse and edit the **Nutrition table**, with 57 starter foods from USDA FoodData Central. Add product-label values per 100 g and explicit ingredient matching names, plus optional household portion weights.
 
 ## Data and app scope
@@ -62,9 +66,13 @@ Pantry matching uses the same ingredient names, unit dimensions, exact fractions
 
 Stock past its use-by date is visible but excluded from shopping coverage, recipe matching, and cooking deductions. Use-by dates are assessed against today in the kitchen’s Europe/London time zone. Stock dated today is still included; **Use soon** covers the next seven days. Different storage locations, use-by dates, or measuring standards can remain separate stock entries. Cooking uses the earliest dated stock first, then undated stock. Amounts never become negative: ingredients used beyond tracked stock are noted separately on the cooking receipt. Cooking a past meal updates current inventory; it does not reconstruct historical stock.
 
-Weekly lists compare the selected week’s remaining meals with current stock. They do not reserve inventory across other weeks. Recording a planned meal removes it from that week’s pending requirements; undo restores the consumed stock and makes that planned meal pending again. Cooked plan slots are protected from replacement or removal until their record is undone. Recording directly from a recipe updates stock without completing a planner slot; use the planner’s **I cooked this** link to complete a planned meal.
+Weekly lists compare the selected week’s uncooked cooking batches with current stock. Leftover meals contribute no ingredients, recipe titles, or planned-meal count, including when their source is in another week. A recipe serving 2 with 200 g rice, planned at 4 servings plus next-day leftovers, produces one **400 g rice** entry on the page and in the export. Checking ingredients and adding checked purchases use the same requirements. Lists do not reserve inventory across other weeks. Recording a planned batch removes it from that week’s pending requirements; undo restores the consumed stock and makes that batch pending again. Cooked plan slots are protected from replacement or removal until their record is undone. Recording directly from a recipe updates stock without completing a planner slot; use the planner’s **I cooked this** link to complete a planned meal.
 
 Cooking and undo operations are atomic, and repeated submissions do not deduct or restore stock twice. Receipts retain the original recipe title, servings, and exact stock deductions, even if a recipe or pantry entry is later edited or removed. Undo restores the original deduction; if a stock entry was deleted or renamed, it restores a separate entry for the original ingredient. Cooking receipts are read-only in the Django admin so editing them cannot break inventory accounting.
+
+When recording cooking, enter **Portions eaten at this meal** (0 through the actual servings made), choose fridge or freezer under **Store the rest in**, and supply **Use by** whenever you are keeping portions. The use-by date must be on or after the cooking date; the app never supplies a shelf life. If nothing is left, the date is ignored. Planned portions eaten are prefilled from the meal; unplanned meals use household portions capped at the yield.
+
+Every new cooking receipt has one prepared batch, including meals with nothing left. The batch stores the actual yield, eaten and remaining portions, storage location, explicit date, and recipe-title snapshot. History shows, for example, **Made 4 · ate 2 · 2 left in the fridge · use by 5 Nov 2026**. Token retries and double recording a plan keep the original batch unchanged. Undo removes it while restoring raw stock from the receipt; recording the meal again creates a new batch. Existing historical receipts remain intact without inferred portion or use-by data.
 
 Extra ingredients typed into recipe discovery apply only to that search. Their quantities are unknown, so matches clearly ask you to check amounts. Add measured stock to the pantry for quantity-verified **Ready to cook** results. The pantry starts empty so it reflects what you actually own.
 
@@ -84,7 +92,9 @@ In Settings, choose **Just me** or **Household**, add names and optional daily c
 
 Select a person in the planner and assign their portions to each meal (decimals such as `1.5` are supported; `0` means they won't eat it). Household cooking servings still drive shopping and pantry use. Combined personal portions cannot exceed the cooking quantity. Changing a meal's recipe or cooking quantity clears its personal portions for reassignment.
 
-Daily cards show nutrition from assigned planned breakfast, lunch, and dinner portions, with neutral differences against goals. Snacks, drinks and leftover scheduling are not included. Missing recipe nutrition or unassigned portions marks totals incomplete and suppresses target differences. Cooking does not record eating. Goals are user-entered; the app does not prescribe targets or define success ranges.
+Daily cards show nutrition from assigned planned breakfast, lunch, and dinner portions, with neutral differences against goals. Personal portions can be assigned to expected leftover meals too. Snacks and drinks are not included. Missing recipe nutrition or unassigned portions marks totals incomplete and suppresses target differences. These are planned totals rather than a personal eating history. Goals are user-entered; the app does not prescribe targets or define success ranges.
+
+Cooking also saves an exact nutrition-per-portion snapshot on the prepared batch, including calories, protein, carbs, fat, missing values, and complete/partial status. A cooked source's leftover card and its personal planned totals use that snapshot; uncooked leftovers, ordinary planned meals, and recipe pages use live estimates. For example, cooked leftovers keep **130 kcal per portion** after a food-table edit moves the recipe's live estimate to **200 kcal per serving**. Partial estimates keep their label, and missing calories show a dash. Undo removes the snapshot with its batch; cooking again takes a fresh snapshot. Batches created before this feature show missing estimates because their past nutrition cannot be reconstructed reliably.
 
 ### Nutrition estimates
 
@@ -98,7 +108,31 @@ Ingredients without a food match or usable weight are visibly omitted, with a **
 
 Scaling a recipe increases the entire batch's ingredient amounts and nutrient totals. Nutrition **per serving stays constant** because the batch is divided into proportionally more servings. Editing the recipe's base yield without increasing ingredients changes the per-serving result. Both views and the batch summary update automatically, including after reload and without JavaScript.
 
-See [the proposed leftovers design](docs/leftovers-design.md) for the next feature's batch/portion accounting and the agreed empty-slot policy. Leftover scheduling is a design proposal, not yet implemented.
+### Expected leftovers in the planner
+
+**Household portions** sets how many portions your household usually eats at a meal. In the plan dialog, leave **Portions eaten at this meal** blank to use that number, capped at the cooking servings, or enter a whole number from 1 through the cooking quantity.
+
+With household portions set to 2, planning Monday dinner for 4 servings schedules 2 expected leftover portions for Tuesday dinner if that slot is empty. A 6-serving batch also fills Tuesday only; the other 2 portions stay spare. A 2-serving batch creates no leftover meal. The rule works across week boundaries, never overwrites another plan, and never fills a second day automatically.
+
+Leftover cards link to their source batch and have no cooking action. Once the source is recorded, they show **Leftovers ready** and **I ate this**. Eating creates a consumption receipt and reduces both remaining and reserved portions, without touching raw pantry stock. The card then shows **Eaten**. History lists **Ate leftovers · 2 portions from Monday's dinner**, with **Undo** to restore those portions and their planner reservation.
+
+Source cards distinguish **remaining** (physically left), **reserved** (promised to uneaten planner meals), and **unassigned** (remaining minus reserved). For 4 made and 2 eaten, Tuesday's reservation gives **2 remaining · 2 reserved · 0 unassigned**, becoming all zero after eating. With 6 made and 2 eaten, the balance goes from **4 remaining · 2 reserved · 2 unassigned** to **2 remaining · 0 reserved · 2 unassigned**. These counts are stored and changed under the kitchen lock in an atomic transaction. Each leftover meal stores the portions actually reserved for it separately from the portions it needs.
+
+If a plan has fewer spare portions than the household needs, the card shows, for example, **1 portion available** and leaves tomorrow open. An occupied tomorrow stays intact and leaves the portions unassigned. Source cards with enough unassigned portions offer **Schedule leftovers**: choose any later date and breakfast, lunch, or dinner. Scheduling requires an empty slot, enough unassigned portions for the household, and, after cooking, a date on or before the batch's explicit use-by date.
+
+Changing a source's quantity or portions eaten keeps its leftover slots and reserves portions in date order, showing **Short by 1 portion** or **Short by 2 portions** wherever coverage is missing. Increasing the plan restores coverage. Replacing its recipe removes its old expected leftovers and names those slots; removing an uncooked source also names and removes every dependent slot. Automatic scheduling only runs when tomorrow is empty and the source has no leftover meals yet.
+
+Cooking fewer portions cuts the latest reservations first. If a planned 4-serving meal is recorded as 3 made and 2 eaten, Tuesday shows **Short by 1 portion · 1 of 2 portions available**. Eating uses that one portion; an empty reservation refuses eating. Extra actual yield stays unassigned. Cooking undo restores full expected reservations using the original planned quantities, increasing the pending cooking quantity if needed to cover reservations added from extra cooked yield. Pantry deductions still come exclusively from the cooking receipt.
+
+Remove an uneaten leftover card to release its reservation, or replace it with a fresh recipe. Eaten cards require consumption undo before removal or replacement. Undo every active leftover consumption before undoing the source cooking record; cooking undo restores raw stock and returns the cards to **Expected leftovers**, preserving their reservations against the plan. Retry tokens survive undo and batch removal. Source edits reconcile expected leftovers, and removing an uncooked source removes its expected follow-on meal.
+
+Leftover planning, prepared portions, reservations, eating and undo, nutrition snapshots, and the prepared food shelf are implemented. Combining leftovers with freshly cooked portions and scheduling portions from a batch cooked without a planner source remain out of scope. See [the leftovers design](docs/leftovers-design.md) for the implemented behavior and future ideas.
+
+### Prepared food shelf
+
+**Prepared food** lists active batches with portions left, ordered by earliest use-by date, fridge before freezer on the same date, and cooking date/time on a full tie. Each row keeps the batch's original recipe title and shows remaining versus made, reserved versus unassigned, location, explicit date, and nutrition snapshot. **Past use by** labels a batch without hiding it or blocking actions. Empty batches disappear from the shelf.
+
+**Freeze** and **Unfreeze** each require a new use-by date. They change only the storage location and date; portions, reservations, snapshots, and cooking receipts stay intact. A planned leftover after the new date stays in place and shows **After use by**. The app never supplies a shelf life or silently moves a planner meal.
 
 Images and fonts are included under `static/`, so the starter experience does not require an external image or font service at runtime. Photos are illustrative. Your own external image URLs still need an internet connection.
 
@@ -112,6 +146,8 @@ Images and fonts are included under `static/`, so the starter experience does no
 
 The Django tests cover page rendering, ingredient search, recipe creation/editing and validation, favorites and CSRF protection, meal-slot replacement, exact fraction parsing and formatting, unit conversions and aliases, source measuring standards, shopping quantity calculations and checks, migration of previous checkboxes, exports, deletion, settings, and week navigation. Inventory tests additionally cover partial stock, expiry, pooled weekly subtraction, discovery ranking and servings, purchase restocking, cooking retries, exact undo, modified/deleted stock entries, persistent history, cooked plan protection, and native date fields.
 
+`kitchen/test_leftovers.py` exercises the whole leftovers workflow through Django's test client, including scheduling and shortfalls, cooking/eating retries and undo, shopping and snapshot examples, shelf ordering, freeze/unfreeze validation, planner date conflicts, and POST/CSRF protection.
+
 For the browser smoke test, install the development requirements, start the server, and run:
 
 ```sh
@@ -121,6 +157,7 @@ For the browser smoke test, install the development requirements, start the serv
 .venv/bin/python tools/browser_pantry.py
 .venv/bin/python tools/browser_nutrition.py
 .venv/bin/python tools/browser_recipe_import.py
+.venv/bin/python tools/browser_leftovers.py
 ```
 
 The browser script uses an installed Google Chrome through Playwright. It checks real UI interactions, persistence, serving calculations, downloads, and mobile layouts, and saves screenshots in `test-artifacts/`. Run it on a fresh demo database: it expects the twelve starter recipes, creates a temporary recipe and future meal slot, and removes them after verification.
@@ -132,6 +169,8 @@ The pantry browser test starts its own temporary SQLite database and local serve
 The nutrition browser test also uses an isolated kitchen. It checks food entry/edit/removal, live calories and macros, batch and per-serving scaling, source cup weights, partial estimates, reload persistence, no-JavaScript forms, and mobile layouts. Backend nutrition tests cover exact arithmetic, source standards, count weights, zero versus missing data, explicit matching, table validation, recipe edits, and independence from shopping conversions.
 
 The recipe-import browser test uses an isolated kitchen to exercise paste/review/cancel/save, editable extracted fields, dynamic ingredient rows, exact scaling, nutrition, planner and shopping integration, correction of an invalid draft, mobile layouts, and the no-JavaScript flow. Backend importer tests cover ambiguous quantities, package sizes, units, missing sections, limits, source preservation, HTML escaping, CSRF, and recipe saving.
+
+The leftovers browser test starts its own temporary seeded kitchen and local server. It checks household portions, automatic and explicit scheduling, spare portions, occupied slots, source shrink/growth, shortfall cards, partial eating, undo, and recording again on desktop/mobile. The rice and calorie examples cover shopping/export amounts, the leftover card, and personal totals after editing a food. It also checks the prepared food shelf, freeze/unfreeze, and use-by conflicts. Backend tests additionally compare all kitchen rows before and after refusals, verify date-ordered reservation cuts and restored plans, and cover cross-week shopping exclusions and snapshots, checkbox persistence and restocking, exact fractional nutrients, partial/zero/missing estimates, safe retries, atomic rollback, migrations, cooked/eaten-plan protections, and personal portions.
 
 ## Project structure
 

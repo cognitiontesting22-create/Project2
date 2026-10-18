@@ -46,8 +46,8 @@
 @media print{.sidebar,.topbar,.page-footer,.button,.favorite-button,.detail-top,.recipe-delete,.shopping-aside,.week-toolbar,.toast,.skip-link,.icon-button{display:none!important}.app-shell{margin:0}.main-content{padding:20px}.recipe-detail-hero{grid-template-columns:1fr 1.2fr;gap:25px}.detail-photo img{max-height:260px}.detail-intro h1{font-size:30px}.recipe-method{display:grid;grid-template-columns:1fr 1.5fr;gap:25px}.ingredients-panel{background:#fff;border:1px solid #ddd}.ingredients-panel .ingredient-list{display:block}.recipe-method section{break-inside:avoid}.instruction-list li{break-inside:avoid;padding-bottom:13px;margin-bottom:10px}.shopping-layout{display:block}.shopping-panel{border:0;padding:0}.shopping-item{break-inside:avoid}.page-heading{margin-bottom:25px}.serving-control button{display:none}body{background:#fff;color:#000}.recipe-notes{background:#fff;border:1px solid #ddd}}
 
 /* Personal portions stay aligned with the shared meal grid. */
-.has-personal-nutrition .meal-slot{height:330px}
-.has-personal-nutrition .meal-label-column>div:not(.day-label-spacer){height:339px}
+.has-personal-nutrition .meal-slot{height:370px}
+.has-personal-nutrition .meal-label-column>div:not(.day-label-spacer){height:379px}
 .has-personal-nutrition .planned-meal>form{margin-top:12px}
 .has-personal-nutrition .planned-meal .field{font-size:10px;margin-bottom:8px;gap:5px}
 .has-personal-nutrition .planned-meal input{width:100%;min-width:0;padding:7px}
@@ -57,3 +57,29 @@
 .nutrition-profiles fieldset{border:1px solid var(--line);border-radius:8px;margin:20px 0;padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px}
 .nutrition-profiles fieldset p{display:flex;flex-direction:column;gap:8px}
 .nutrition-profiles input{width:100%;padding:10px;border:1px solid var(--line);border-radius:5px;background:#fffefb}
+
+/* Leave room for the batch balance and leftover eating action. */
+.meal-slot{height:235px}
+.meal-label-column>div:not(.day-label-spacer){height:244px}
+.planned-meal>.portion-accounting{white-space:normal}
+.leftover-eat-form{margin:6px 2px}
+.planned-meal>.leftover-nutrition{white-space:normal}
+.planned-meal>.leftover-status{white-space:normal}
+.leftover-schedule{font-size:10px;margin:6px 2px}
+.leftover-schedule summary{cursor:pointer;color:var(--green)}
+.leftover-schedule .field{font-size:10px;margin:8px 0}
+.leftover-schedule input,.leftover-schedule select{min-width:0;width:100%;padding:6px}
+.planned-meal:has(.leftover-schedule[open]){overflow:visible;height:auto;min-height:100%;z-index:2;box-shadow:0 4px 12px #0002;padding-bottom:30px}
+.leftover-eat-form .text-button{font-size:10px;color:var(--green)}
+.leftover-history-card{grid-template-columns:1fr}
+.leftover-history-card h2{font-size:23px;margin:8px 0 18px}
+.prepared-pantry-link{margin-bottom:18px}
+.prepared-shelf{display:grid;gap:16px;max-width:1000px;margin-bottom:36px}
+.prepared-row{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px;border:1px solid var(--line);border-radius:9px;background:#fffefb}
+.prepared-info h2{font-size:25px;margin-bottom:10px;overflow-wrap:anywhere}
+.prepared-info p{font-size:12px;color:var(--muted);margin:6px 0}
+.prepared-past-date,.planned-meal>.leftover-conflict{color:var(--rust)}
+.prepared-storage-form{width:175px;flex-shrink:0}
+.prepared-storage-form .field{font-size:11px;margin-bottom:12px}
+.prepared-storage-form .button{width:100%}
+@media(max-width:600px){.prepared-row{align-items:stretch;flex-direction:column;gap:16px;padding:20px}.prepared-storage-form{width:100%}}
